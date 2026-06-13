@@ -40,8 +40,8 @@ class Engine:
             conn = self._connection_factory(
                 meta.host, meta.port, use_tls=use_tls, tls=self.tls,
                 proxy=self.proxy, timeouts=self.timeouts)
-            await conn.open()
             try:
+                await conn.open()
                 await conn.send_bytes(req.serialize())
                 resp = await conn.read_response(req.method)
             finally:

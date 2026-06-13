@@ -84,3 +84,30 @@ async def test_retry_signal_retries_until_max():
     resp = await engine.send(req)
     assert resp.status_code == 200
     assert len(StubConn.instances) == 2
+
+
+async def test_connection_closed_when_open_fails():
+    from penpine.transport.exceptions import ConnectError
+
+    state = {"closed": False}
+
+    class FailingConn:
+        def __init__(self, *a, **k):
+            pass
+
+        async def open(self):
+            raise ConnectError("nope")
+
+        async def send_bytes(self, data):
+            pass
+
+        async def read_response(self, method="GET"):
+            pass
+
+        async def close(self):
+            state["closed"] = True
+
+    req = Request.from_url("http://h:8080/")
+    with pytest.raises(ConnectError):
+        await Engine(connection_factory=FailingConn).send(req)
+    assert state["closed"] is True
