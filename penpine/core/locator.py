@@ -108,3 +108,45 @@ def _replace(request, kind: str, name: str, value):
 
 
 _MISSING = object()
+
+
+def _json_leaf_paths(data, prefix="$"):
+    paths = []
+    if isinstance(data, dict):
+        for k, v in data.items():
+            paths += _json_leaf_paths(v, f"{prefix}.{k}")
+    elif isinstance(data, list):
+        for i, v in enumerate(data):
+            paths += _json_leaf_paths(v, f"{prefix}[{i}]")
+    else:
+        paths.append(prefix)
+    return paths
+
+
+def enumerate_candidates(request, kinds=None) -> list[ResolvedLocator]:
+    out: list[ResolvedLocator] = []
+
+    def emit(kind, name, value):
+        if kinds is None or kind in kinds:
+            out.append(ResolvedLocator(request, kind, name, value))
+
+    _, query = split_target(request.target)
+    for k, v in parse_query(query):
+        emit("param", k, v)
+    for name, value in request.headers.items():
+        if name.lower() == "cookie":
+            for ck, cv in parse_cookie_header(value):
+                emit("cookie", ck, cv)
+        else:
+            emit("header", name, value)
+    ctype = request.headers.get("Content-Type", "")
+    if "application/json" in ctype and request.body.raw:
+        try:
+            for path in _json_leaf_paths(request.body.json.data):
+                emit("json", path, request.body.json.get(path))
+        except Exception:
+            pass
+    elif "application/x-www-form-urlencoded" in ctype:
+        for k, v in request.body.form.fields:
+            emit("form", k, v)
+    return out

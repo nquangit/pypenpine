@@ -89,6 +89,10 @@ class Request:
             return expr_or_locator.replace(value)
         return self.locate(expr_or_locator).replace(value)
 
+    def injection_candidates(self, kinds=None):
+        from penpine.core.locator import enumerate_candidates
+        return enumerate_candidates(self, kinds)
+
 
 @dataclass(frozen=True)
 class Response:
