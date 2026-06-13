@@ -1,6 +1,7 @@
 """Engine: high-level send over one-shot connections, with interceptors + retry."""
 from __future__ import annotations
 import asyncio
+import threading
 
 from penpine.transport.connection import Connection
 from penpine.transport.exceptions import TransportError
@@ -19,6 +20,8 @@ class Engine:
         self.max_concurrency = max_concurrency
         self.max_retries = max_retries
         self._connection_factory = connection_factory
+        self._loop = None
+        self._loop_thread = None
 
     async def send(self, request):
         meta = request.meta
@@ -61,3 +64,35 @@ class Engine:
 
         return await asyncio.gather(
             *(one(r) for r in requests), return_exceptions=return_exceptions)
+
+    def _ensure_loop(self):
+        if self._loop is None:
+            self._loop = asyncio.new_event_loop()
+            self._loop_thread = threading.Thread(
+                target=self._loop.run_forever, daemon=True)
+            self._loop_thread.start()
+
+    def send_sync(self, request):
+        self._ensure_loop()
+        future = asyncio.run_coroutine_threadsafe(self.send(request), self._loop)
+        return future.result()
+
+    def send_many_sync(self, requests, *, return_exceptions=False):
+        self._ensure_loop()
+        future = asyncio.run_coroutine_threadsafe(
+            self.send_many(requests, return_exceptions=return_exceptions), self._loop)
+        return future.result()
+
+    def close(self):
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._loop_thread.join(timeout=2)
+            self._loop.close()
+            self._loop = None
+            self._loop_thread = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
