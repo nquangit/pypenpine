@@ -1,10 +1,28 @@
 """Read one full HTTP/1.1 response off a ByteStream, then hand to L0 to parse."""
 from __future__ import annotations
 
+from penpine.core.headers import Headers
 from penpine.core.parse.framing import body_length
 from penpine.core.parse.http_parser import parse_response
 from penpine.transport.exceptions import IncompleteResponseError, TransportError
 from penpine.transport.stream import ByteStream
+
+
+def _preview_head(head: bytes) -> tuple[int, Headers]:
+    """Extract status code + headers from a response head WITHOUT framing the
+    body. (parse_response eagerly decodes chunked bodies, which a head-only
+    parse cannot satisfy, so we do a minimal split here.)"""
+    block = head.rstrip(b"\r\n")
+    lines = block.split(b"\r\n") if b"\r\n" in block else block.split(b"\n")
+    status_parts = lines[0].decode("latin-1").split(" ")
+    status = int(status_parts[1]) if len(status_parts) >= 2 and status_parts[1].isdigit() else 0
+    headers = Headers()
+    for line in lines[1:]:
+        text = line.decode("latin-1")
+        if ":" in text:
+            name, _, value = text.partition(":")
+            headers = headers.add(name, value.strip())
+    return status, headers
 
 
 class _Buffered:
@@ -105,12 +123,12 @@ class ResponseReader:
     @staticmethod
     async def read(stream: ByteStream, *, request_method: str = "GET"):
         head, remainder = await _read_head(stream)
-        preview = parse_response(head)
+        status, headers = _preview_head(head)
         method = request_method.upper()
-        if method == "HEAD" or preview.status_code in (204, 304):
+        if method == "HEAD" or status in (204, 304):
             body = b""
         else:
-            kind, length = body_length(preview.headers)
+            kind, length = body_length(headers)
             if kind == "length":
                 body = await _read_n(stream, length, remainder)
             elif kind == "chunked":
