@@ -85,6 +85,10 @@ async def test_scheduler_survives_transport_error():
 async def test_scheduler_idles_without_trigger():
     provider = CountingProvider()
     sched = RefreshScheduler(manager(provider))   # every=None, no session/expiry
+    # deterministic: with nothing to schedule, a tick must NOT request a refresh
+    _, should_refresh = sched._next_tick()
+    assert should_refresh is False
+    # and behaviorally it never proactively logs in
     await sched.start()
     await asyncio.sleep(0.1)
     await sched.stop()
