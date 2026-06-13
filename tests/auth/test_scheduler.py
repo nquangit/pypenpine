@@ -57,3 +57,35 @@ async def test_scheduler_survives_login_error():
     await sched.stop()
     assert running
     assert provider.logins >= 3
+
+
+async def test_scheduler_survives_transport_error():
+    from penpine.transport.exceptions import TransportError
+
+    class BoomProvider(AuthProvider):
+        def __init__(self):
+            self.logins = 0
+
+        async def login(self, engine):
+            self.logins += 1
+            if self.logins == 2:
+                raise TransportError("net blip")
+            return Session(token=f"t{self.logins}")
+
+    provider = BoomProvider()
+    sched = RefreshScheduler(manager(provider), every=0.02)
+    await sched.start()
+    await asyncio.sleep(0.09)
+    running = not sched._task.done()
+    await sched.stop()
+    assert running                       # a TransportError tick did not kill the loop
+    assert provider.logins >= 3
+
+
+async def test_scheduler_idles_without_trigger():
+    provider = CountingProvider()
+    sched = RefreshScheduler(manager(provider))   # every=None, no session/expiry
+    await sched.start()
+    await asyncio.sleep(0.1)
+    await sched.stop()
+    assert provider.logins == 0          # nothing to schedule -> no proactive login
