@@ -54,3 +54,9 @@ def test_concurrent_writes_are_safe():
     for t in threads:
         t.join()
     assert len(c.keys()) == 300
+
+
+def test_namespaced_require_missing_raises():
+    c = Context()
+    with pytest.raises(DataError):
+        c.namespace("u").require("nope")

@@ -51,3 +51,14 @@ def test_defaults_create_empty_data_and_context():
     assert isinstance(ident.data, DataProfile)
     assert isinstance(ident.ctx, Context)
     assert ident.manager is None
+
+
+def test_send_sync_delegates_and_no_manager_raises():
+    class SyncStub:
+        def send_sync(self, request, **kw):
+            return "RESP"
+
+    assert Identity("A", manager=SyncStub()).send_sync(
+        Request.from_url("http://h/")) == "RESP"
+    with pytest.raises(DataError):
+        Identity("A").send_sync(Request.from_url("http://h/"))

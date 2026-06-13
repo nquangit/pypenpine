@@ -67,3 +67,10 @@ def test_json_path_miss_respects_required_and_default():
         extract_value(resp, Extract("x", json="$.missing"))
     assert extract_value(resp, Extract("x", json="$.missing",
                                         required=False, default="d")) == "d"
+
+
+def test_extract_cookie_among_multiple_set_cookie():
+    resp = parse_response(
+        b"HTTP/1.1 200 OK\r\nSet-Cookie: a=1\r\n"
+        b"Set-Cookie: sid=abc; Path=/\r\nContent-Length: 0\r\n\r\n")
+    assert extract_value(resp, Extract("s", cookie="sid")) == "abc"
