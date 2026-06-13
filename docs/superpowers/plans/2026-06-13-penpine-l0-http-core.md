@@ -1866,7 +1866,10 @@ Then add to `class Request` in `penpine/core/message.py`:
         return locate(self, expr)
 
     def replace_at(self, expr_or_locator, value) -> "Request":
-        if hasattr(expr_or_locator, "replace"):
+        from penpine.core.locator import ResolvedLocator
+        # NOTE: isinstance, not hasattr("replace") — str also has .replace, so a
+        # locator-expression string would be misrouted by a duck-typing check.
+        if isinstance(expr_or_locator, ResolvedLocator):
             return expr_or_locator.replace(value)
         return self.locate(expr_or_locator).replace(value)
 ```
