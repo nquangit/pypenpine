@@ -111,3 +111,13 @@ async def test_connection_closed_when_open_fails():
     with pytest.raises(ConnectError):
         await Engine(connection_factory=FailingConn).send(req)
     assert state["closed"] is True
+
+
+async def test_http_proxy_plain_http_rewrites_to_absolute_form():
+    from penpine.transport.proxy import ProxyConfig
+
+    req = Request.from_url("http://h:8080/path?q=1")
+    engine = Engine(proxy=ProxyConfig.from_url("http://127.0.0.1:3128"),
+                    connection_factory=StubConn)
+    await engine.send(req)
+    assert StubConn.instances[0].sent.startswith(b"GET http://h:8080/path?q=1 HTTP/1.1")
