@@ -77,3 +77,13 @@ async def test_is_auth_failure_default():
     from penpine.core.parse.http_parser import parse_response
     assert mgr.is_auth_failure(parse_response(unauthorized())) is True
     assert mgr.is_auth_failure(parse_response(ok())) is False
+
+
+async def test_persistent_401_returns_last_response_after_retries():
+    provider = StubProvider()
+    engine = FakeEngine([unauthorized()])     # always 401
+    mgr = SessionManager(provider, BearerAuth(), auth_engine=FakeEngine([]),
+                         send_engine=engine)
+    resp = await mgr.send(req(), max_auth_retries=2)
+    assert resp.status_code == 401
+    assert provider.logins == 3               # initial login + 2 re-logins

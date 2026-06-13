@@ -51,3 +51,9 @@ def test_apply_returns_new_request():
     r = BearerAuth().apply(req, Session(token="t"))
     assert "Authorization" not in req.headers
     assert r is not req
+
+
+def test_header_auth_from_data_source():
+    s = Session(data={"key": "K"})
+    r = HeaderAuth("X-API-Key", value_source="key").apply(base_request(), s)
+    assert r.headers["X-API-Key"] == "K"
