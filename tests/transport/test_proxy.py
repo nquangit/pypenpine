@@ -69,3 +69,15 @@ async def test_socks5_connect_failure_raises():
     p = ProxyConfig.from_url("socks5://127.0.0.1:1080")
     with pytest.raises(ProxyError):
         await p.establish(opener, "target.com", 80)
+
+
+async def test_establish_closes_stream_on_handshake_failure():
+    stream = FakeByteStream(b"HTTP/1.1 403 Forbidden\r\n\r\n")
+
+    async def opener(host, port):
+        return stream
+
+    p = ProxyConfig.from_url("http://127.0.0.1:8080")
+    with pytest.raises(ProxyError):
+        await p.establish(opener, "target.com", 443)
+    assert stream.closed

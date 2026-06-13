@@ -35,12 +35,16 @@ class ProxyConfig:
 
     async def establish(self, open_stream, target_host: str, target_port: int):
         stream = await open_stream(self.host, self.port)
-        if self.scheme == "socks5":
-            await _socks5_connect(stream, target_host, target_port,
-                                  self.username, self.password)
-        else:
-            await _http_connect(stream, target_host, target_port,
-                                self.username, self.password)
+        try:
+            if self.scheme == "socks5":
+                await _socks5_connect(stream, target_host, target_port,
+                                      self.username, self.password)
+            else:
+                await _http_connect(stream, target_host, target_port,
+                                    self.username, self.password)
+        except BaseException:
+            await stream.close()
+            raise
         return stream
 
 
