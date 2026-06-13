@@ -28,3 +28,10 @@ def test_decode_chunked():
 def test_decode_chunked_incomplete_raises():
     with pytest.raises(ParseError):
         decode_chunked(b"4\r\nWi")
+
+
+def test_decode_chunked_with_trailers_consumes_all():
+    raw = b"4\r\nWiki\r\n0\r\nX-Trailer: v\r\n\r\n"
+    decoded, consumed = decode_chunked(raw)
+    assert decoded == b"Wiki"
+    assert consumed == len(raw)

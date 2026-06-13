@@ -33,10 +33,13 @@ def decode_chunked(data: bytes) -> tuple[bytes, int]:
             raise ParseError(f"invalid chunk size {size_line!r}", offset=pos) from exc
         pos = nl + 2
         if size == 0:
-            end = data.find(b"\r\n", pos)
-            if end == -1:
-                raise ParseError("missing final CRLF after last chunk", offset=pos)
-            return bytes(out), end + 2
+            while True:
+                end = data.find(b"\r\n", pos)
+                if end == -1:
+                    raise ParseError("missing final CRLF after last chunk", offset=pos)
+                if end == pos:  # blank line terminates trailers
+                    return bytes(out), end + 2
+                pos = end + 2
         if pos + size + 2 > len(data):
             raise ParseError("incomplete chunk data", offset=pos)
         out += data[pos:pos + size]
