@@ -34,6 +34,13 @@ class Request:
     def clone(self, **changes) -> "Request":
         return replace(self, **changes)
 
+    def serialize(self) -> bytes:
+        from penpine.core.serialize import serialize_request
+        return serialize_request(self)
+
+    def to_bytes(self) -> bytes:
+        return self.serialize()
+
 
 @dataclass(frozen=True)
 class Response:
