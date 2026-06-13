@@ -8,10 +8,13 @@ from penpine.transport.engine import Engine
 from penpine.transport.connection import Connection
 from penpine.auth.manager import SessionManager
 from penpine.auth.profile import AuthProfile
+from penpine.data.context import Context
+from penpine.data.identity import Identity
 
 __all__ = [
     "Request", "Response", "RequestBuilder", "Headers", "Body",
     "configure_logging", "get_logger",
     "Engine", "Connection",
     "SessionManager", "AuthProfile",
+    "Context", "Identity",
 ]
