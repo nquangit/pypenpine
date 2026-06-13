@@ -1,6 +1,9 @@
 """SessionManager: session lifecycle + gated send with auth retry."""
 from __future__ import annotations
 
+import asyncio
+import threading
+
 from penpine.auth.gate import RefreshGate
 from penpine.transport.engine import Engine
 
@@ -20,6 +23,8 @@ class SessionManager:
         self._auth_failure = auth_failure or _default_auth_failure
         self._session = None
         self._gate = RefreshGate()
+        self._loop = None
+        self._loop_thread = None
 
     @property
     def session(self):
@@ -57,3 +62,38 @@ class SessionManager:
                 continue
             return resp
         return resp
+
+    async def send_many(self, requests, *, return_exceptions=False):
+        return await asyncio.gather(
+            *(self.send(r) for r in requests), return_exceptions=return_exceptions)
+
+    def _ensure_loop(self):
+        if self._loop is None:
+            self._loop = asyncio.new_event_loop()
+            self._loop_thread = threading.Thread(
+                target=self._loop.run_forever, daemon=True)
+            self._loop_thread.start()
+
+    def send_sync(self, request, **kwargs):
+        self._ensure_loop()
+        return asyncio.run_coroutine_threadsafe(
+            self.send(request, **kwargs), self._loop).result()
+
+    def send_many_sync(self, requests, **kwargs):
+        self._ensure_loop()
+        return asyncio.run_coroutine_threadsafe(
+            self.send_many(requests, **kwargs), self._loop).result()
+
+    def close(self):
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._loop_thread.join(timeout=2)
+            self._loop.close()
+            self._loop = None
+            self._loop_thread = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
