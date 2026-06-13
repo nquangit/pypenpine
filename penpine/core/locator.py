@@ -149,4 +149,14 @@ def enumerate_candidates(request, kinds=None) -> list[ResolvedLocator]:
     elif "application/x-www-form-urlencoded" in ctype:
         for k, v in request.body.form.fields:
             emit("form", k, v)
+    elif "multipart/form-data" in ctype and request.body.raw:
+        try:
+            mp = request.body.multipart
+            for nm in mp.names():
+                emit("multipart", nm, mp.get(nm))
+        except Exception:
+            pass
+    path, _ = split_target(request.target)
+    for i, seg in enumerate([s for s in path.split("/") if s]):
+        emit("path-seg", str(i), seg)
     return out

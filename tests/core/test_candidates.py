@@ -22,3 +22,25 @@ def test_kinds_filter():
                 headers=Headers([("Host", "h")]))
     only = r.injection_candidates(kinds={"param"})
     assert {c.kind for c in only} == {"param"}
+
+
+def test_enumerates_path_segments():
+    r = Request(method="GET", target="/api/v1/users?a=1", version="HTTP/1.1",
+                headers=Headers([("Host", "h")]))
+    exprs = {f"{c.kind}:{c.name}" for c in r.injection_candidates()}
+    assert "path-seg:0" in exprs
+    assert "path-seg:2" in exprs
+
+
+def test_enumerates_multipart_fields():
+    ct = 'multipart/form-data; boundary=----b'
+    raw = (b"------b\r\n"
+           b'Content-Disposition: form-data; name="a"\r\n\r\n'
+           b"1\r\n"
+           b"------b--\r\n")
+    r = Request(method="POST", target="/upload", version="HTTP/1.1",
+                headers=Headers([("Host", "h"), ("Content-Type", ct)]),
+                body=Body(raw, ct))
+    cands = r.injection_candidates(kinds={"multipart"})
+    assert {c.kind for c in cands} == {"multipart"}
+    assert any(c.name == "a" for c in cands)
