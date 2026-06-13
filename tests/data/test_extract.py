@@ -53,3 +53,17 @@ def test_run_extractors_returns_dict():
         b'HTTP/1.1 200 OK\r\nX-Token: tk\r\nContent-Length: 22\r\n\r\n{"user":{"id":"U7"}}\r\n')
     out = run_extractors(resp, [Extract("id", json="$.user.id"), Extract("t", header="X-Token")])
     assert out == {"id": "U7", "t": "tk"}
+
+
+def test_json_non_json_body_raises_clear_error():
+    resp = parse_response(b"HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\n<html>err")
+    with pytest.raises(ExtractError, match="not JSON"):
+        extract_value(resp, Extract("x", json="$.id"))
+
+
+def test_json_path_miss_respects_required_and_default():
+    resp = parse_response(b'HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\n{"a":1}\r\n')
+    with pytest.raises(ExtractError):
+        extract_value(resp, Extract("x", json="$.missing"))
+    assert extract_value(resp, Extract("x", json="$.missing",
+                                        required=False, default="d")) == "d"

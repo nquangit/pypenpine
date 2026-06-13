@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from penpine.core.cookies import parse_set_cookie
 from penpine.data.exceptions import ExtractError
+from penpine.exceptions import BodyParseError
 
 _MISSING = object()
 
@@ -27,8 +28,13 @@ def _raw_extract(response, spec: Extract):
         return response.status_code
     if spec.json is not None:
         try:
-            return response.body.json.get(spec.json)
-        except Exception:
+            json_view = response.body.json
+        except BodyParseError as exc:
+            raise ExtractError(
+                f"response body is not JSON (key {spec.key!r}): {exc}") from exc
+        try:
+            return json_view.get(spec.json)
+        except BodyParseError:
             return _MISSING
     if spec.header is not None:
         return response.headers.get(spec.header, _MISSING)
