@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, replace
 from penpine.core.body.base import Body
 from penpine.core.headers import Headers
 from penpine.core.meta import ConnectionMeta
+from penpine.core.url import set_query_param
 
 
 def _coerce_body(body) -> Body:
@@ -40,6 +41,43 @@ class Request:
 
     def to_bytes(self) -> bytes:
         return self.serialize()
+
+    def with_method(self, method: str) -> "Request":
+        return self.clone(method=method, raw=None)
+
+    def with_target(self, target: str) -> "Request":
+        return self.clone(target=target, raw=None)
+
+    def with_version(self, version: str) -> "Request":
+        return self.clone(version=version, raw=None)
+
+    def with_headers(self, headers: Headers) -> "Request":
+        return self.clone(headers=headers, raw=None)
+
+    def set_header(self, name: str, value: str) -> "Request":
+        return self.clone(headers=self.headers.set(name, value), raw=None)
+
+    def add_header(self, name: str, value: str) -> "Request":
+        return self.clone(headers=self.headers.add(name, value), raw=None)
+
+    def remove_header(self, name: str) -> "Request":
+        return self.clone(headers=self.headers.remove(name), raw=None)
+
+    def with_body(self, body) -> "Request":
+        new_body = body if isinstance(body, Body) else Body(body, self.body.content_type)
+        headers = self.headers
+        if not self.preserve_content_length and "Transfer-Encoding" not in headers:
+            headers = headers.set("Content-Length", str(len(new_body.raw)))
+        return self.clone(body=new_body, headers=headers, raw=None)
+
+    def set_param(self, name: str, value: str) -> "Request":
+        return self.with_target(set_query_param(self.target, name, value))
+
+    def set_form_field(self, name: str, value: str) -> "Request":
+        return self.with_body(self.body.form.set(name, value).to_bytes())
+
+    def set_json(self, path: str, value) -> "Request":
+        return self.with_body(self.body.json.set(path, value).to_bytes())
 
 
 @dataclass(frozen=True)
