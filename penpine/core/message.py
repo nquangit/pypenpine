@@ -93,6 +93,21 @@ class Request:
         from penpine.core.locator import enumerate_candidates
         return enumerate_candidates(self, kinds)
 
+    @classmethod
+    def from_raw(cls, data, **kw) -> "Request":
+        from penpine.core.loaders import from_raw
+        return from_raw(data, **kw)
+
+    @classmethod
+    def from_file(cls, path, **kw) -> "Request":
+        from penpine.core.loaders import from_file
+        return from_file(path, **kw)
+
+    @classmethod
+    def from_url(cls, url, **kw) -> "Request":
+        from penpine.core.loaders import from_url
+        return from_url(url, **kw)
+
 
 @dataclass(frozen=True)
 class Response:
