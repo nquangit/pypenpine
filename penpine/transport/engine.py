@@ -1,5 +1,6 @@
 """Engine: high-level send over one-shot connections, with interceptors + retry."""
 from __future__ import annotations
+import asyncio
 
 from penpine.transport.connection import Connection
 from penpine.transport.exceptions import TransportError
@@ -50,3 +51,13 @@ class Engine:
             except RetrySignal:
                 continue
         return last_resp
+
+    async def send_many(self, requests, *, return_exceptions=False):
+        sem = asyncio.Semaphore(self.max_concurrency)
+
+        async def one(req):
+            async with sem:
+                return await self.send(req)
+
+        return await asyncio.gather(
+            *(one(r) for r in requests), return_exceptions=return_exceptions)
