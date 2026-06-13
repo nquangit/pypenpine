@@ -97,7 +97,7 @@ class AuthProvider:
 ```
 
 Ready-made (use L0 `RequestBuilder` + the passed engine):
-- **`JsonLoginProvider(url, payload, *, method="POST", token_path="$.access_token", expires_path=None, headers=None)`** — POSTs JSON, extracts token via JSONPath from the response body (`response.body.json.get(token_path)`); if `expires_path` given, reads a TTL/absolute and sets `expires_at`. Returns `Session(token=...)`. Raises `LoginError` on non-2xx or missing token.
+- **`JsonLoginProvider(url, payload, *, method="POST", token_path="$.access_token", expires_path=None, headers=None)`** — POSTs JSON, extracts token via JSONPath from the response body (`response.body.json.get(token_path)`); if `expires_path` given, reads a **TTL in seconds** (e.g. `expires_in`) and sets `expires_at = now + ttl`. Returns `Session(token=...)`. Raises `LoginError` on non-2xx or missing token.
 - **`FormLoginProvider(url, fields, *, method="POST", headers=None)`** — POSTs urlencoded fields, captures every `Set-Cookie` from the response (via `cookies.parse_set_cookie`) into `session.cookies`. Returns `Session(cookies=...)`. Raises `LoginError` on non-2xx.
 
 **Auth-flow engine:** the `engine` argument is a plain `Engine` with **no `AuthInterceptor`**, so login/refresh requests never recurse into auth handling. The `SessionManager` owns this engine (see §6).
