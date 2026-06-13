@@ -25,6 +25,7 @@ class SessionManager:
         self._gate = RefreshGate()
         self._loop = None
         self._loop_thread = None
+        self._loop_lock = threading.Lock()
 
     @property
     def session(self):
@@ -68,11 +69,12 @@ class SessionManager:
             *(self.send(r) for r in requests), return_exceptions=return_exceptions)
 
     def _ensure_loop(self):
-        if self._loop is None:
-            self._loop = asyncio.new_event_loop()
-            self._loop_thread = threading.Thread(
-                target=self._loop.run_forever, daemon=True)
-            self._loop_thread.start()
+        with self._loop_lock:
+            if self._loop is None:
+                self._loop = asyncio.new_event_loop()
+                self._loop_thread = threading.Thread(
+                    target=self._loop.run_forever, daemon=True)
+                self._loop_thread.start()
 
     def send_sync(self, request, **kwargs):
         self._ensure_loop()
