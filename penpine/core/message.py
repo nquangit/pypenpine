@@ -79,6 +79,16 @@ class Request:
     def set_json(self, path: str, value) -> "Request":
         return self.with_body(self.body.json.set(path, value).to_bytes())
 
+    def locate(self, expr: str):
+        from penpine.core.locator import locate
+        return locate(self, expr)
+
+    def replace_at(self, expr_or_locator, value) -> "Request":
+        from penpine.core.locator import ResolvedLocator
+        if isinstance(expr_or_locator, ResolvedLocator):
+            return expr_or_locator.replace(value)
+        return self.locate(expr_or_locator).replace(value)
+
 
 @dataclass(frozen=True)
 class Response:
