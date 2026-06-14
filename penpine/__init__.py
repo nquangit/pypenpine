@@ -10,6 +10,7 @@ from penpine.auth.manager import SessionManager
 from penpine.auth.profile import AuthProfile
 from penpine.data.context import Context
 from penpine.data.identity import Identity
+from penpine.attack.runner import Runner
 
 __all__ = [
     "Request", "Response", "RequestBuilder", "Headers", "Body",
@@ -17,4 +18,5 @@ __all__ = [
     "Engine", "Connection",
     "SessionManager", "AuthProfile",
     "Context", "Identity",
+    "Runner",
 ]
