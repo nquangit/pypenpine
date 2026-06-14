@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import threading
 import time
 
 from penpine.attack.analyze.analyzer import analyze
@@ -17,6 +18,9 @@ class Runner:
         self._sender = sender if sender is not None else Engine()
         self._max_concurrency = max_concurrency
         self._capture_baseline = capture_baseline
+        self._loop = None
+        self._loop_thread = None
+        self._loop_lock = threading.Lock()
 
     def _resolve_module(self, attack, module):
         if module is not None:
@@ -93,3 +97,31 @@ class Runner:
 
         return Attempt(test_case=sent_tc, request=req, response=response,
                        finding=finding, elapsed_ms=(time.perf_counter() - start) * 1000)
+
+    def _ensure_loop(self):
+        with self._loop_lock:
+            if self._loop is None:
+                self._loop = asyncio.new_event_loop()
+                self._loop_thread = threading.Thread(
+                    target=self._loop.run_forever, daemon=True)
+                self._loop_thread.start()
+
+    def run_sync(self, request, **kwargs):
+        self._ensure_loop()
+        future = asyncio.run_coroutine_threadsafe(
+            self.run(request, **kwargs), self._loop)
+        return future.result()
+
+    def close(self):
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._loop_thread.join(timeout=2)
+            self._loop.close()
+            self._loop = None
+            self._loop_thread = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
