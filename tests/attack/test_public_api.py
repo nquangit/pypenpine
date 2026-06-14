@@ -11,3 +11,8 @@ def test_public_exports_exist():
                 PayloadGenerator, Validator, AttackModule,
                 register, get, list_modules, unregister, clear,
                 ECHO_MODULE, AttackError, AttackConfigError])
+
+
+def test_runner_results_exported():
+    from penpine.attack import Runner, Report, Attempt
+    assert all([Runner, Report, Attempt])
