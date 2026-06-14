@@ -38,6 +38,17 @@ class Runner:
 
     async def run(self, request, *, attack=None, module=None, test_cases=None,
                   points=None, validator=None, sender=None):
+        """Run an attack and return a Report.
+
+        Provide one of: `attack` (module name resolved from the registry),
+        `module` (an AttackModule instance), or `test_cases` (explicit TestCases).
+        Points to attack default to `analyze(request).for_attack(attack_type)`
+        filtered by `module.applies(kind)`; note a module's name should match an
+        analyzer attack-type tag or selection will be empty. Pass `points=` to
+        override selection entirely (this BYPASSES the `applies` filter — it runs
+        the generator on exactly the points you give). `sender` overrides the
+        instance's sender for this call.
+        """
         active_sender = sender if sender is not None else self._sender
         module = self._resolve_module(attack, module)
         attack_type = attack if attack is not None else (module.name if module else None)
