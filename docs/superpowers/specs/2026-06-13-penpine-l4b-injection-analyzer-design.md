@@ -87,7 +87,7 @@ Helpers used by rules: `_value_str(point)` (stringified value), `_name_lower(poi
 | `IdentifierNameRule` | name matches id-like (`id`,`uid`,`user`,`account`,`order`,`pid`, or `*_id`/`*id`) | `{idor, sqli}` |
 | `UrlValueRule` | value `is_url` | `{ssrf, open-redirect}` |
 | `RedirectNameRule` | name in {`url`,`redirect`,`redirect_uri`,`next`,`return`,`returnurl`,`dest`,`destination`,`callback`} | `{open-redirect, ssrf}` |
-| `FileNameOrPathRule` | value `is_path` OR name in {`file`,`path`,`page`,`template`,`include`,`doc`,`document`,`filename`} | `{path-traversal, lfi}` |
+| `FileNameOrPathRule` | kind in {param,form,json,multipart,cookie} AND (value `is_path` OR name in {`file`,`path`,`page`,`template`,`include`,`doc`,`document`,`filename`}) | `{path-traversal, lfi}` |
 | `PathSegmentRule` | kind == `path-seg` | `{path-traversal, idor}` |
 | `HostHeaderRule` | kind == `header` AND name.lower() == `host` | `{host-header, ssrf}` |
 | `ProxyHeaderRule` | kind == `header` AND name.lower() in {`x-forwarded-for`,`x-forwarded-host`,`forwarded`,`referer`,`user-agent`,`x-real-ip`,`true-client-ip`} | `{ssrf, header-injection}` |

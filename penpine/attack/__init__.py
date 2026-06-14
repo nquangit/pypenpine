@@ -10,6 +10,7 @@ from penpine.attack.registry import (
 )
 from penpine.attack.example import EchoGenerator, EchoValidator, ECHO_MODULE
 from penpine.attack.exceptions import AttackError, AttackConfigError
+from penpine.attack.analyze import analyze, Analysis
 
 __all__ = [
     "InjectionPoint", "Payload", "TestCase", "Finding", "Confidence",
@@ -17,4 +18,5 @@ __all__ = [
     "register", "get", "list_modules", "unregister", "clear",
     "EchoGenerator", "EchoValidator", "ECHO_MODULE",
     "AttackError", "AttackConfigError",
+    "analyze", "Analysis",
 ]
