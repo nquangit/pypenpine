@@ -4,6 +4,7 @@ from __future__ import annotations
 from penpine.attack.analyze.detectors import is_empty, is_numeric, is_path, is_url
 
 _BODY_KINDS = {"param", "form", "json", "multipart"}
+_PATH_KINDS = {"param", "form", "json", "multipart", "cookie"}
 _ID_NAMES = {"id", "uid", "user", "userid", "account", "order", "pid"}
 _REDIRECT_NAMES = {"url", "redirect", "redirect_uri", "next", "return",
                    "returnurl", "dest", "destination", "callback"}
@@ -73,6 +74,8 @@ class FileNameOrPathRule(ClassificationRule):
     name = "file-or-path"
 
     def match(self, point) -> set:
+        if point.kind not in _PATH_KINDS:
+            return set()
         if is_path(point.value) or _name(point) in _FILE_NAMES:
             return {"path-traversal", "lfi"}
         return set()

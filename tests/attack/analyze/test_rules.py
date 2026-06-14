@@ -59,3 +59,17 @@ def test_default_rules_is_ordered_list_of_rules():
     assert isinstance(DEFAULT_RULES, list) and len(DEFAULT_RULES) == 10
     assert all(isinstance(r, ClassificationRule) for r in DEFAULT_RULES)
     assert all(r.name for r in DEFAULT_RULES)
+
+
+def test_file_path_rule_ignores_headers():
+    from penpine.attack.analyze.rules import FileNameOrPathRule
+    # media-type value contains '/' but a header must NOT be tagged path-traversal/lfi
+    assert FileNameOrPathRule().match(pt("header", "Content-Type", "application/json")) == set()
+    assert FileNameOrPathRule().match(pt("header", "Referer", "http://x/y")) == set()
+
+
+def test_file_path_rule_still_tags_body_kinds():
+    from penpine.attack.analyze.rules import FileNameOrPathRule
+    assert FileNameOrPathRule().match(pt("param", "x", "../e")) == {"path-traversal", "lfi"}
+    assert FileNameOrPathRule().match(pt("json", "doc", "anything")) == {"path-traversal", "lfi"}
+    assert FileNameOrPathRule().match(pt("form", "x", "a/b")) == {"path-traversal", "lfi"}
