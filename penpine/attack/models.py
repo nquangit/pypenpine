@@ -32,6 +32,7 @@ class Payload:
 
 @dataclass(frozen=True)
 class TestCase:
+    __test__ = False  # not a pytest test class
     point: InjectionPoint
     payload: Payload
     attack_type: str
