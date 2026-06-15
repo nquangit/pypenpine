@@ -40,3 +40,7 @@ def test_validator_clean_and_baseline_guard():
 def test_module_metadata():
     assert TRAVERSAL_MODULE.name == "path-traversal"
     assert TRAVERSAL_MODULE.applies("path-seg")
+
+
+def test_module_applies_to_multipart():
+    assert TRAVERSAL_MODULE.applies("multipart")

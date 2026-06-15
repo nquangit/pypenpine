@@ -52,5 +52,5 @@ class TraversalValidator(Validator):
 
 
 TRAVERSAL_MODULE = AttackModule("path-traversal", TraversalGenerator(), TraversalValidator(),
-                                applies_to=("param", "form", "json", "path-seg", "cookie"),
+                                applies_to=("param", "form", "json", "multipart", "path-seg", "cookie"),
                                 description="path traversal / LFI")
