@@ -21,8 +21,17 @@ def test_register_builtins_registers_all_and_is_idempotent():
 
 
 def test_import_has_no_side_effects():
-    import penpine.attack.modules  # noqa: F401
-    assert registry.list_modules() == []
+    import subprocess
+    import sys
+
+    code = (
+        "import penpine.attack, penpine.attack.modules\n"
+        "from penpine.attack import registry\n"
+        "print(registry.list_modules())\n"
+    )
+    result = subprocess.run([sys.executable, "-c", code],
+                            capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "[]"   # fresh import registers nothing
 
 
 def test_attack_package_reexports():
