@@ -52,3 +52,15 @@ def test_custom_payloads_and_signatures():
 def test_module_metadata():
     assert SQLI_MODULE.name == "sqli"
     assert SQLI_MODULE.applies("param") and not SQLI_MODULE.applies("path-seg")
+
+
+def test_validator_detects_multiple_db_errors():
+    tc = next(iter(SqliGenerator().generate(pt("x"), None)))
+    bodies = [
+        b"PostgreSQL query failed: ERROR: syntax error at or near",
+        b"Microsoft SQL Server error '80040e14'",
+        b"sqlite3.OperationalError: near syntax error",
+        b"Unclosed quotation mark after the character string",
+    ]
+    for body in bodies:
+        assert SqliValidator().evaluate(tc, resp(body), None) is not None

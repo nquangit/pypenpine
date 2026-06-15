@@ -36,3 +36,12 @@ def test_validator_non_redirect_or_other_host_returns_none():
 
 def test_module_metadata():
     assert REDIRECT_MODULE.name == "open-redirect" and REDIRECT_MODULE.applies("param")
+
+
+def test_validator_accepts_307_and_308():
+    tc = next(iter(RedirectGenerator().generate(pt(), None)))
+    for status in (307, 308):
+        resp = parse_response(
+            b"HTTP/1.1 %d Redirect\r\nLocation: https://penpine-canary.example/\r\n"
+            b"Content-Length: 0\r\n\r\n" % status)
+        assert RedirectValidator().evaluate(tc, resp, None) is not None
