@@ -1,0 +1,31 @@
+import pytest
+
+from penpine.attack import registry
+from penpine.attack.modules import register_builtins, BUILTIN_MODULES
+
+
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    registry.clear()
+    yield
+    registry.clear()
+
+
+def test_register_builtins_registers_all_and_is_idempotent():
+    register_builtins()
+    for name in ("sqli", "xss", "path-traversal", "open-redirect"):
+        assert registry.get(name)
+    register_builtins()
+    assert set(registry.list_modules()) >= {"sqli", "xss", "path-traversal", "open-redirect"}
+    assert len(BUILTIN_MODULES) == 4
+
+
+def test_import_has_no_side_effects():
+    import penpine.attack.modules  # noqa: F401
+    assert registry.list_modules() == []
+
+
+def test_attack_package_reexports():
+    from penpine.attack import register_builtins as rb, BUILTIN_MODULES as bm
+    assert rb is register_builtins
+    assert bm is BUILTIN_MODULES
