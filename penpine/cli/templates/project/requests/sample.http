@@ -1,0 +1,6 @@
+GET /search?q=penpine&id=1 HTTP/1.1
+Host: __TARGET_HOST__
+User-Agent: penpine-sample
+Accept: */*
+Connection: close
+

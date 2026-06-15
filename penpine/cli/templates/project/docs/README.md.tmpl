@@ -1,0 +1,47 @@
+# {{ project_name }}
+
+A penpine-based pentesting project, scaffolded on {{ date }}.
+
+## Setup
+
+A virtualenv was created at `.venv` with penpine installed editable from
+`{{ penpine_path }}`. Activate it:
+
+    source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+If you scaffolded with `--no-venv`, create it yourself:
+
+    python -m venv .venv && source .venv/bin/activate
+    pip install -r requirements.txt
+
+## Run
+
+1. Edit `config.py` and set `TARGET_HOST` to **a system you are authorized to test**.
+2. Run the engagement:
+
+       python main.py            # runs config.ATTACKS against requests/sample.http
+       python main.py sqli xss   # override the attack list
+
+`main.py` registers the built-in modules plus this project's custom module,
+runs each attack, and prints findings.
+
+## Extending
+
+`samples/` holds one self-contained, offline-runnable example per extension
+point — run any directly with `python -m samples.<name>`:
+
+| File | Shows |
+|------|-------|
+| `samples/custom_payload.py` | a `PayloadGenerator` |
+| `samples/custom_validator.py` | a `Validator` |
+| `samples/custom_module.py` | wiring generator + validator into a registered `AttackModule` |
+| `samples/custom_rule.py` | a `ClassificationRule` for the analyzer |
+| `samples/custom_auth.py` | a custom `AuthScheme` + `AuthProfile` |
+| `samples/custom_interceptor.py` | a transport `Interceptor` |
+| `samples/data_sharing.py` | sharing captured data between two `Identity` objects (IDOR) |
+| `samples/byo_test_cases.py` | bringing your own `TestCase`s to the `Runner` |
+
+## Legal
+
+For authorized security testing only. Only test systems you own or have
+explicit written permission to assess.

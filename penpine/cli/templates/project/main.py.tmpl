@@ -1,0 +1,51 @@
+"""{{ project_name }} — penpine engagement entry point.
+
+Runnable end to end: loads requests/sample.http, registers the built-in attack
+modules plus this project's custom module, runs the configured attack(s), and
+prints findings. Configure the target in config.py before running.
+
+    python main.py            # run config.ATTACKS
+    python main.py sqli xss   # override the attack list on the CLI
+"""
+import sys
+
+from penpine import Engine, Runner
+from penpine.attack.modules import register_builtins
+from penpine.core.message import Request
+from penpine.transport.proxy import ProxyConfig
+from penpine.transport.tls import TLSConfig
+
+import config
+from samples.custom_module import register as register_custom
+
+
+def load_request():
+    raw = open("requests/sample.http", "rb").read()
+    return Request.from_raw(raw.replace(b"__TARGET_HOST__", config.TARGET_HOST.encode()))
+
+
+def build_runner():
+    engine_kw = {"tls": TLSConfig(verify=config.TLS_VERIFY)}
+    if config.PROXY:
+        engine_kw["proxy"] = ProxyConfig.from_url(config.PROXY)
+    return Runner(sender=Engine(**engine_kw), max_concurrency=config.CONCURRENCY)
+
+
+def main(argv=None):
+    attacks = (argv if argv is not None else sys.argv[1:]) or config.ATTACKS
+    register_builtins()
+    register_custom()
+    request = load_request()
+    runner = build_runner()
+    try:
+        for attack in attacks:
+            report = runner.run_sync(request, attack=attack)
+            print(f"\n== {attack} ==  {report.summary()}")
+            for finding in report.findings:
+                print(f"  [{finding.confidence.name}] {finding.point.expr} -> {finding.evidence}")
+    finally:
+        runner.close()
+
+
+if __name__ == "__main__":
+    main()
