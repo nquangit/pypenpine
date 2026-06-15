@@ -20,7 +20,8 @@ from samples.custom_module import register as register_custom
 
 
 def load_request():
-    raw = open("requests/sample.http", "rb").read()
+    with open("requests/sample.http", "rb") as fh:
+        raw = fh.read()
     return Request.from_raw(raw.replace(b"__TARGET_HOST__", config.TARGET_HOST.encode()))
 
 

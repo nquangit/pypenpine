@@ -34,6 +34,11 @@ def run(name: str, *, target_dir: str = ".", create_venv: bool = True,
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",
     }
 
+    # Rollback covers rendering only: if a render into a dir WE created fails, we
+    # remove it so no half-written tree is left behind. The venv step below is
+    # intentionally outside this guard — by then the project files are valid and
+    # complete, so a venv/pip failure is downgraded to a warning (the user can
+    # build the venv by hand) rather than discarding good files.
     try:
         scaffold.render_project(project, variables, force=force)
     except Exception:
