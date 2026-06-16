@@ -22,7 +22,12 @@ from samples.custom_module import register as register_custom
 def load_request():
     with open("requests/sample.http", "rb") as fh:
         raw = fh.read()
-    return Request.from_raw(raw.replace(b"__TARGET_HOST__", config.TARGET_HOST.encode()))
+    raw = raw.replace(b"__TARGET_HOST__", config.TARGET_HOST.encode())
+    host, _, port_s = config.TARGET_HOST.partition(":")
+    port = int(port_s) if port_s else (443 if config.TARGET_SCHEME == "https" else 80)
+    # meta tells the Engine where/how to connect; scheme == "https" enables TLS
+    # (cert verification is controlled separately by config.TLS_VERIFY).
+    return Request.from_raw(raw, scheme=config.TARGET_SCHEME, host=host, port=port)
 
 
 def build_runner():

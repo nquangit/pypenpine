@@ -1,8 +1,11 @@
 """{{ project_name }} — configuration (pure Python; no external config files)."""
 
-# Host[:port] the sample request targets. CHANGE THIS to a system you are
-# AUTHORIZED to test. Defaults to localhost so a blind run hits nothing real.
-TARGET_HOST = "127.0.0.1:8000"
+# The target the sample request is sent to. CHANGE THESE to a system you are
+# AUTHORIZED to test. Defaults to a local listener so a blind run is inert.
+#   TARGET_SCHEME selects http vs https — https makes the Engine use TLS.
+#   TARGET_HOST is the connection host, optionally with :port.
+TARGET_SCHEME = "http"          # "http" or "https"
+TARGET_HOST = "127.0.0.1:8000"  # host or host:port
 
 # Attacks to run by default — names of registered modules.
 ATTACKS = ["sqli", "xss"]
@@ -13,5 +16,7 @@ CONCURRENCY = 10
 # Optional upstream proxy, e.g. "http://127.0.0.1:8080" for Burp/ZAP. None disables.
 PROXY = None
 
-# Verify TLS certificates. False is common when testing self-signed targets.
+# Verify TLS certificates (only applies when TARGET_SCHEME == "https").
+# False is common when testing self-signed / lab targets; True enforces a
+# valid certificate chain.
 TLS_VERIFY = False
