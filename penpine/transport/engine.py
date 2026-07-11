@@ -6,8 +6,14 @@ import asyncio
 import threading
 
 from penpine.transport.connection import Connection
-from penpine.transport.exceptions import TotalTimeout, TransportError
+from penpine.transport.exceptions import (
+    ConnectError,
+    IncompleteResponseError,
+    TotalTimeout,
+    TransportError,
+)
 from penpine.transport.interceptor import RetrySignal
+from penpine.transport.pool import ConnectionPool, PoolConfig, _connection_reusable
 from penpine.transport.timeouts import Timeouts
 from penpine.transport.tls import TLSConfig
 
@@ -23,6 +29,8 @@ class Engine:
         max_concurrency=10,
         max_retries=0,
         connection_factory=Connection,
+        reuse_connections=False,
+        pool=None,
     ):
         self.tls = tls or TLSConfig()
         self.proxy = proxy
@@ -31,6 +39,16 @@ class Engine:
         self.max_concurrency = max_concurrency
         self.max_retries = max_retries
         self._connection_factory = connection_factory
+        if pool is not None or reuse_connections:
+            self._pool = ConnectionPool(
+                connection_factory,
+                tls=self.tls,
+                proxy=self.proxy,
+                timeouts=self.timeouts,
+                config=pool or PoolConfig(),
+            )
+        else:
+            self._pool = None
         self._loop = None
         self._loop_thread = None
 
@@ -58,20 +76,23 @@ class Engine:
                 req = await ic.before_send(req)
             if self.proxy is not None and self.proxy.scheme.startswith("http") and not use_tls:
                 req = req.with_target(f"http://{meta.host}:{meta.port}{req.target}")
-            conn = self._connection_factory(
-                meta.host,
-                meta.port,
-                use_tls=use_tls,
-                tls=self.tls,
-                proxy=self.proxy,
-                timeouts=self.timeouts,
-            )
-            try:
-                await conn.open()
-                await conn.send_bytes(req.serialize())
-                resp = await conn.read_response(req.method)
-            finally:
-                await conn.close()
+            if self._pool is None:
+                conn = self._connection_factory(
+                    meta.host,
+                    meta.port,
+                    use_tls=use_tls,
+                    tls=self.tls,
+                    proxy=self.proxy,
+                    timeouts=self.timeouts,
+                )
+                try:
+                    await conn.open()
+                    await conn.send_bytes(req.serialize())
+                    resp = await conn.read_response(req.method)
+                finally:
+                    await conn.close()
+            else:
+                resp = await self._send_pooled((meta.host, meta.port, use_tls), req)
             last_resp = resp
             try:
                 for ic in reversed(self.interceptors):
@@ -80,6 +101,38 @@ class Engine:
             except RetrySignal:
                 continue
         return last_resp
+
+    async def _send_pooled(self, key, req):
+        conn, reused = await self._pool.acquire(key)
+        released = False
+        try:
+            try:
+                await conn.send_bytes(req.serialize())
+                resp = await conn.read_response(req.method)
+            except (ConnectError, IncompleteResponseError, OSError):
+                if not reused:
+                    raise
+                # stale keep-alive: the server reaped the idle conn -> retry once fresh
+                await conn.close()
+                conn, _ = await self._pool.acquire(key, force_new=True)
+                await conn.send_bytes(req.serialize())
+                resp = await conn.read_response(req.method)
+            await self._pool.release(key, conn, _connection_reusable(req, resp))
+            released = True
+            return resp
+        finally:
+            if not released:
+                await conn.close()
+
+    async def aclose(self):
+        if self._pool is not None:
+            await self._pool.aclose()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        await self.aclose()
 
     async def send_many(self, requests, *, return_exceptions=False):
         sem = asyncio.Semaphore(self.max_concurrency)
@@ -112,6 +165,8 @@ class Engine:
 
     def close(self):
         if self._loop is not None:
+            if self._pool is not None:
+                asyncio.run_coroutine_threadsafe(self.aclose(), self._loop).result(timeout=2)
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._loop_thread.join(timeout=2)
             self._loop.close()
