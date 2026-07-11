@@ -40,3 +40,9 @@ def from_url(url, *, method="GET", headers=None, body=None, version="HTTP/1.1"):
         body=Body(body or b""),
         meta=ConnectionMeta(scheme=u.scheme, host=u.host, port=u.port),
     )
+
+
+def from_curl(command):
+    from penpine.core.curl import parse_curl
+
+    return parse_curl(command)

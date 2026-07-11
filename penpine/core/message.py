@@ -111,6 +111,12 @@ class Request:
         return from_file(path, **kw)
 
     @classmethod
+    def from_curl(cls, command) -> Request:
+        from penpine.core.loaders import from_curl
+
+        return from_curl(command)
+
+    @classmethod
     def from_url(cls, url, **kw) -> Request:
         from penpine.core.loaders import from_url
 
