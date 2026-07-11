@@ -93,7 +93,18 @@ def _dry_run(request, names):
     return 0
 
 
-def _execute(request, names, *, fail_on_findings, proxy, insecure, concurrency, sender):
+def _parse_proxy(proxy):
+    if not proxy:
+        return None
+    from penpine.transport.proxy import ProxyConfig
+
+    try:
+        return ProxyConfig.from_url(proxy)
+    except ValueError as exc:
+        raise CliError(f"invalid --proxy {proxy!r}: {exc}") from exc
+
+
+def _execute(request, names, *, fail_on_findings, proxy_config, insecure, concurrency, sender):
     from penpine.attack.runner import Runner
 
     print(_AUTHORIZED_REMINDER, file=sys.stderr)
@@ -101,12 +112,11 @@ def _execute(request, names, *, fail_on_findings, proxy, insecure, concurrency, 
     own_engine = None
     if sender is None:
         from penpine.transport.engine import Engine
-        from penpine.transport.proxy import ProxyConfig
         from penpine.transport.tls import TLSConfig
 
         own_engine = Engine(
             tls=TLSConfig(verify=not insecure),
-            proxy=ProxyConfig.from_url(proxy) if proxy else None,
+            proxy=proxy_config,
             max_concurrency=concurrency,
         )
         sender = own_engine
@@ -142,13 +152,16 @@ def run(
 ):
     request = _build_request(curl=curl, request_file=request_file, url=url, target=target)
     names = _resolve_attacks(attacks)
+    if concurrency < 1:
+        raise CliError("--concurrency must be a positive integer")
     if dry_run:
         return _dry_run(request, names)
+    proxy_config = _parse_proxy(proxy)
     return _execute(
         request,
         names,
         fail_on_findings=fail_on_findings,
-        proxy=proxy,
+        proxy_config=proxy_config,
         insecure=insecure,
         concurrency=concurrency,
         sender=sender,

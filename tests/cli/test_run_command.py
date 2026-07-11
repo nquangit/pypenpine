@@ -1,4 +1,7 @@
+import pytest
+
 from penpine.cli.commands.run import run
+from penpine.cli.exceptions import CliError
 from penpine.core.parse.http_parser import parse_response
 
 
@@ -62,3 +65,21 @@ def test_clean_run_exit_0_even_with_fail_flag(capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "found 0" in out
+
+
+def test_invalid_concurrency_raises_cli_error():
+    with pytest.raises(CliError):
+        run(url="http://h/s?q=1", concurrency=0, sender=FakeSender())
+    with pytest.raises(CliError):
+        run(url="http://h/s?q=1", concurrency=-1, sender=FakeSender())
+
+
+def test_invalid_proxy_raises_cli_error():
+    with pytest.raises(CliError):
+        run(url="http://h/s?q=1", proxy="http://h:notaport", sender=FakeSender())
+
+
+def test_valid_concurrency_and_no_proxy_still_runs(capsys):
+    rc = run(url="http://h/s?q=1", attacks="sqli", concurrency=3, sender=FakeSender())
+    assert rc == 0
+    assert "== sqli ==" in capsys.readouterr().out
