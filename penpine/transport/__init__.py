@@ -8,7 +8,9 @@ from penpine.transport.exceptions import (
     ProxyError,
     ReadTimeout,
     TLSError,
+    TotalTimeout,
     TransportError,
+    TransportTimeout,
 )
 from penpine.transport.interceptor import Interceptor, RetrySignal
 from penpine.transport.proxy import ProxyConfig
@@ -28,5 +30,7 @@ __all__ = [
     "TLSError",
     "ProxyError",
     "ReadTimeout",
+    "TransportTimeout",
+    "TotalTimeout",
     "IncompleteResponseError",
 ]

@@ -21,8 +21,16 @@ class ProxyError(TransportError):
     """Proxy negotiation (HTTP CONNECT / SOCKS5) failed."""
 
 
-class ReadTimeout(TransportError):
+class TransportTimeout(TransportError):
+    """Base class for transport timeouts."""
+
+
+class ReadTimeout(TransportTimeout):
     """A read exceeded its timeout."""
+
+
+class TotalTimeout(TransportTimeout):
+    """A send exceeded its total timeout."""
 
 
 class IncompleteResponseError(TransportError):
