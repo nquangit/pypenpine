@@ -295,7 +295,7 @@ test case never aborts the run.
 ## Testing
 
 ```bash
-pytest                # 327 tests (1 opt-in slow), no network required
+pytest                # ~400 tests (1 opt-in slow), no network required
 ```
 
 The whole suite runs against synthetic requests/responses and fake senders — no
@@ -316,14 +316,26 @@ Run the same checks CI runs:
 
 ## Status & roadmap
 
-All eight layers (L0–L4d) are built, reviewed, and merged. Documented
-follow-ups not yet implemented:
+All eight layers (L0–L4d) are built, reviewed, and merged, plus these
+capabilities:
 
-- **Transport:** read/total timeout enforcement (only connect timeout is wired
-  today) and connection pooling / keep-alive.
-- **Attacks:** differential SQLi (boolean/time-based) — needs a runner extension
-  for cross-response and latency comparison — plus blind/OOB SSRF and
-  command-injection modules (same module pattern as the built-ins).
+- **`Request.from_curl(cmd)`** — paste a "Copy as cURL" command and get a
+  ready-to-send request (meta populated).
+- **Transport timeouts** — `read` (whole-response deadline) and `total`
+  (whole-send ceiling) are enforced (`ReadTimeout`/`TotalTimeout`); connect was
+  already wired.
+- **Connection pooling / keep-alive** — opt-in via `Engine(reuse_connections=True)`
+  (default off), keyed by host/port/tls with per-host idle cap + eviction.
+- **Differential (blind) SQLi** — boolean-based (`Runner.run(attack="sqli-boolean")`)
+  and time-based (`"sqli-time"`) via an active-prober Runner extension; registered
+  by name, kept out of the default signature module set.
+
+Documented follow-ups not yet implemented:
+
+- **Attacks:** blind/OOB SSRF and command-injection modules (signature pattern);
+  boolean data-exfiltration and Oracle/SQLite time payloads (extend the
+  differential prober).
+- **Transport:** global connection cap / LRU eviction (per-host cap ships today).
 
 ## Legal
 
