@@ -8,8 +8,7 @@ def test_from_raw_string():
 
 
 def test_from_raw_sets_meta_when_provided():
-    r = Request.from_raw(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n",
-                         scheme="https", host="h", port=443)
+    r = Request.from_raw(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n", scheme="https", host="h", port=443)
     assert r.meta.scheme == "https"
     assert r.meta.host == "h"
     assert r.meta.port == 443

@@ -1,4 +1,5 @@
 """Body: raw bytes plus lazy typed views."""
+
 from __future__ import annotations
 
 from functools import cached_property
@@ -30,14 +31,17 @@ class Body:
     @cached_property
     def json(self):
         from penpine.core.body.json_body import JsonBody
+
         return JsonBody.from_bytes(self._raw)
 
     @cached_property
     def form(self):
         from penpine.core.body.form_body import FormBody
+
         return FormBody.from_bytes(self._raw)
 
     @cached_property
     def multipart(self):
         from penpine.core.body.multipart_body import MultipartBody
+
         return MultipartBody.from_bytes(self._raw, self.content_type)

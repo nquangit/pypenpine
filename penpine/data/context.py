@@ -1,4 +1,5 @@
 """Context: a thread-safe key/value bus shared across identities."""
+
 from __future__ import annotations
 
 import threading
@@ -41,7 +42,7 @@ class Context:
         with self._lock:
             return dict(self._data)
 
-    def namespace(self, prefix: str) -> "NamespacedView":
+    def namespace(self, prefix: str) -> NamespacedView:
         return NamespacedView(self, prefix)
 
 

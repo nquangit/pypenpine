@@ -1,7 +1,9 @@
 """RefreshScheduler: periodic / ahead-of-expiry gated session refresh."""
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 
 from penpine.logging import get_logger
@@ -45,8 +47,6 @@ class RefreshScheduler:
     async def stop(self):
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None

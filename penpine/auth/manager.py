@@ -1,4 +1,5 @@
 """SessionManager: session lifecycle + gated send with auth retry."""
+
 from __future__ import annotations
 
 import asyncio
@@ -13,8 +14,16 @@ def _default_auth_failure(response) -> bool:
 
 
 class SessionManager:
-    def __init__(self, provider, scheme, *, auth_engine=None, send_engine=None,
-                 expiry_skew=30.0, auth_failure=None):
+    def __init__(
+        self,
+        provider,
+        scheme,
+        *,
+        auth_engine=None,
+        send_engine=None,
+        expiry_skew=30.0,
+        auth_failure=None,
+    ):
         self._provider = provider
         self._scheme = scheme
         self._auth_engine = auth_engine if auth_engine is not None else Engine()
@@ -66,25 +75,25 @@ class SessionManager:
 
     async def send_many(self, requests, *, return_exceptions=False):
         return await asyncio.gather(
-            *(self.send(r) for r in requests), return_exceptions=return_exceptions)
+            *(self.send(r) for r in requests), return_exceptions=return_exceptions
+        )
 
     def _ensure_loop(self):
         with self._loop_lock:
             if self._loop is None:
                 self._loop = asyncio.new_event_loop()
-                self._loop_thread = threading.Thread(
-                    target=self._loop.run_forever, daemon=True)
+                self._loop_thread = threading.Thread(target=self._loop.run_forever, daemon=True)
                 self._loop_thread.start()
 
     def send_sync(self, request, **kwargs):
         self._ensure_loop()
-        return asyncio.run_coroutine_threadsafe(
-            self.send(request, **kwargs), self._loop).result()
+        return asyncio.run_coroutine_threadsafe(self.send(request, **kwargs), self._loop).result()
 
     def send_many_sync(self, requests, **kwargs):
         self._ensure_loop()
         return asyncio.run_coroutine_threadsafe(
-            self.send_many(requests, **kwargs), self._loop).result()
+            self.send_many(requests, **kwargs), self._loop
+        ).result()
 
     def close(self):
         if self._loop is not None:

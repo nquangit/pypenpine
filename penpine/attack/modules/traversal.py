@@ -1,4 +1,5 @@
 """Path traversal / LFI module."""
+
 from __future__ import annotations
 
 import re
@@ -17,12 +18,15 @@ TRAVERSAL_PAYLOADS = [
     "/etc/passwd",
 ]
 
-TRAVERSAL_SIGNATURES = [re.compile(pattern, re.I) for pattern in [
-    r"root:.*:0:0:",
-    r"daemon:.*:/usr/sbin",
-    r"\[(?:extensions|fonts|mci extensions)\]",
-    r"for 16-bit app support",
-]]
+TRAVERSAL_SIGNATURES = [
+    re.compile(pattern, re.I)
+    for pattern in [
+        r"root:.*:0:0:",
+        r"daemon:.*:/usr/sbin",
+        r"\[(?:extensions|fonts|mci extensions)\]",
+        r"for 16-bit app support",
+    ]
+]
 
 
 class TraversalGenerator(PayloadGenerator):
@@ -31,14 +35,16 @@ class TraversalGenerator(PayloadGenerator):
 
     def generate(self, point, request):
         for value in self._payloads:
-            yield TestCase(point=point, payload=Payload(value, technique="lfi"),
-                           attack_type="path-traversal")
+            yield TestCase(
+                point=point, payload=Payload(value, technique="lfi"), attack_type="path-traversal"
+            )
 
 
 class TraversalValidator(Validator):
     def __init__(self, signatures=None):
-        self._signatures = (list(signatures) if signatures is not None
-                            else list(TRAVERSAL_SIGNATURES))
+        self._signatures = (
+            list(signatures) if signatures is not None else list(TRAVERSAL_SIGNATURES)
+        )
 
     def evaluate(self, test_case, response, baseline=None):
         match = search_signatures(body_text(response), self._signatures)
@@ -46,11 +52,21 @@ class TraversalValidator(Validator):
             return None
         if baseline is not None and search_signatures(body_text(baseline), self._signatures):
             return None
-        return Finding("path-traversal", test_case.point, test_case.payload, Confidence.HIGH,
-                       f"file content signature: {match.group(0)[:80]}",
-                       request=test_case.request, response=response)
+        return Finding(
+            "path-traversal",
+            test_case.point,
+            test_case.payload,
+            Confidence.HIGH,
+            f"file content signature: {match.group(0)[:80]}",
+            request=test_case.request,
+            response=response,
+        )
 
 
-TRAVERSAL_MODULE = AttackModule("path-traversal", TraversalGenerator(), TraversalValidator(),
-                                applies_to=("param", "form", "json", "multipart", "path-seg", "cookie"),
-                                description="path traversal / LFI")
+TRAVERSAL_MODULE = AttackModule(
+    "path-traversal",
+    TraversalGenerator(),
+    TraversalValidator(),
+    applies_to=("param", "form", "json", "multipart", "path-seg", "cookie"),
+    description="path traversal / LFI",
+)

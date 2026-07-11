@@ -1,4 +1,5 @@
 """TLS configuration. Verification is OFF by default (pentest convention)."""
+
 from __future__ import annotations
 
 import ssl

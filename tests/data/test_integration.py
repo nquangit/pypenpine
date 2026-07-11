@@ -1,14 +1,15 @@
 from penpine.core.message import Request
-from penpine.data.identity import Identity
 from penpine.data.context import Context
 from penpine.data.extract import Extract
+from penpine.data.identity import Identity
 from tests.auth._fakes import FakeEngine
 
 
 def create_order_resp(request):
     body = b'{"id":"ORD-123"}'
-    return (b"HTTP/1.1 201 Created\r\nContent-Length: " + str(len(body)).encode()
-            + b"\r\n\r\n" + body)
+    return (
+        b"HTTP/1.1 201 Created\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body
+    )
 
 
 def use_order_resp(request):
@@ -24,8 +25,7 @@ async def test_user_a_creates_user_b_uses_via_shared_context():
     alice.capture(resp, [Extract("order_id", json="$.id")])
     assert ctx.get("order_id") == "ORD-123"
 
-    raw = (b"POST /use HTTP/1.1\r\nHost: h\r\nContent-Length: 15\r\n\r\n"
-           b"id={{order_id}}")
+    raw = b"POST /use HTTP/1.1\r\nHost: h\r\nContent-Length: 15\r\n\r\nid={{order_id}}"
     rendered = bob.render(Request.from_raw(raw))
     assert rendered.body.raw == b"id=ORD-123"
     assert rendered.headers["Content-Length"] == "10"

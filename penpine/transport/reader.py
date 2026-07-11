@@ -1,4 +1,5 @@
 """Read one full HTTP/1.1 response off a ByteStream, then hand to L0 to parse."""
+
 from __future__ import annotations
 
 from penpine.core.headers import Headers
@@ -43,8 +44,8 @@ class _Buffered:
         while True:
             idx = self._buf.find(b"\r\n")
             if idx != -1:
-                line = bytes(self._buf[:idx + 2])
-                del self._buf[:idx + 2]
+                line = bytes(self._buf[: idx + 2])
+                del self._buf[: idx + 2]
                 return line
             if not await self._fill():
                 raise IncompleteResponseError("EOF while reading chunk line")

@@ -1,5 +1,5 @@
-from penpine.attack.models import InjectionPoint
 from penpine.attack.analyze.analysis import Analysis
+from penpine.attack.models import InjectionPoint
 
 
 def points():

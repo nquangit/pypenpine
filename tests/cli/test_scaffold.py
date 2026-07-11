@@ -18,9 +18,11 @@ def test_renders_substitutes_copies_and_maps_dotfiles(tmp_path):
     src = _make_source(tmp_path)
     dst = tmp_path / "out"
     written = render_project(dst, {"project_name": "demo", "date": "2026-06-15"}, source=src)
-    assert (dst / "main.py").read_text() == "name = demo\n"          # .tmpl rendered + suffix stripped
-    assert (dst / "keep.http").read_text() == "literal {{ x }} stays\n"  # verbatim, braces preserved
-    assert (dst / ".gitignore").read_text() == ".venv/\n"            # dot- prefix mapped
+    assert (dst / "main.py").read_text() == "name = demo\n"  # .tmpl rendered + suffix stripped
+    assert (
+        dst / "keep.http"
+    ).read_text() == "literal {{ x }} stays\n"  # verbatim, braces preserved
+    assert (dst / ".gitignore").read_text() == ".venv/\n"  # dot- prefix mapped
     assert (dst / "sub" / "note.txt").read_text() == "on 2026-06-15\n"  # nested
     assert (dst / "main.py") in written
 

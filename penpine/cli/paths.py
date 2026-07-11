@@ -1,4 +1,5 @@
 """Project-name slugging and local penpine source detection."""
+
 from __future__ import annotations
 
 import re

@@ -1,4 +1,5 @@
 """Custom {{ }} template renderer over a Request, and mapping builder."""
+
 from __future__ import annotations
 
 import re
@@ -32,11 +33,13 @@ def render(request, mapping, *, strict=True):
             if strict:
                 raise TemplateError(f"unknown placeholder: {{{{{key}}}}}")
             return match.group(0)
+
         return _PLACEHOLDER.sub(_sub, text)
 
     new = request.with_target(_replace(request.target))
     new = new.with_headers(
-        Headers([(name, _replace(value)) for name, value in new.headers.items()]))
+        Headers([(name, _replace(value)) for name, value in new.headers.items()])
+    )
     if request.body.raw:
         new = new.with_body(_replace(request.body.text()).encode())
     return new

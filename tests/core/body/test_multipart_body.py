@@ -1,6 +1,6 @@
 from penpine.core.body.multipart_body import MultipartBody
 
-CT = 'multipart/form-data; boundary=----b'
+CT = "multipart/form-data; boundary=----b"
 RAW = (
     b"------b\r\n"
     b'Content-Disposition: form-data; name="a"\r\n\r\n'

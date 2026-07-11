@@ -1,4 +1,5 @@
 """AttackModule: bundles a generator + validator + metadata."""
+
 from __future__ import annotations
 
 from penpine.attack.generator import PayloadGenerator
@@ -6,8 +7,15 @@ from penpine.attack.validator import Validator
 
 
 class AttackModule:
-    def __init__(self, name: str, generator: PayloadGenerator, validator: Validator,
-                 *, applies_to: tuple = (), description: str = ""):
+    def __init__(
+        self,
+        name: str,
+        generator: PayloadGenerator,
+        validator: Validator,
+        *,
+        applies_to: tuple = (),
+        description: str = "",
+    ):
         self.name = name
         self.generator = generator
         self.validator = validator

@@ -1,14 +1,17 @@
-from penpine.core.message import Request
-from penpine.core.headers import Headers
-from penpine.auth.session import Session
 from penpine.auth.scheme import (
-    BearerAuth, BasicAuth, CookieAuth, HeaderAuth, MultiScheme,
+    BasicAuth,
+    BearerAuth,
+    CookieAuth,
+    HeaderAuth,
+    MultiScheme,
 )
+from penpine.auth.session import Session
+from penpine.core.headers import Headers
+from penpine.core.message import Request
 
 
 def base_request(headers=None):
-    return Request(method="GET", target="/", version="HTTP/1.1",
-                   headers=Headers(headers or []))
+    return Request(method="GET", target="/", version="HTTP/1.1", headers=Headers(headers or []))
 
 
 def test_bearer_from_token():

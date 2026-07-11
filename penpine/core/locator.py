@@ -1,4 +1,5 @@
 """Locator DSL: address and replace sub-parts of a Request."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from penpine.exceptions import LocatorError
 
 @dataclass(frozen=True)
 class ResolvedLocator:
-    request: "object"
+    request: object
     kind: str
     name: str
     value: object

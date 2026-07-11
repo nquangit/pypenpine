@@ -1,7 +1,8 @@
 import pytest
+
+from penpine.transport.exceptions import IncompleteResponseError
 from penpine.transport.reader import ResponseReader
 from penpine.transport.stream import FakeByteStream
-from penpine.transport.exceptions import IncompleteResponseError
 
 
 async def test_content_length_body():
@@ -13,16 +14,14 @@ async def test_content_length_body():
 
 
 async def test_chunked_body_decoded_and_raw_preserved():
-    raw = (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-           b"5\r\nhello\r\n0\r\n\r\n")
+    raw = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n"
     resp = await ResponseReader.read(FakeByteStream(raw), request_method="GET")
     assert resp.body.raw == b"hello"
     assert resp.raw == raw
 
 
 async def test_chunked_with_trailers():
-    raw = (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-           b"4\r\nWiki\r\n0\r\nX-T: v\r\n\r\n")
+    raw = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n0\r\nX-T: v\r\n\r\n"
     resp = await ResponseReader.read(FakeByteStream(raw), request_method="GET")
     assert resp.body.raw == b"Wiki"
     assert resp.raw == raw
@@ -49,5 +48,6 @@ async def test_304_has_no_body():
 
 async def test_truncated_headers_raise():
     with pytest.raises(IncompleteResponseError):
-        await ResponseReader.read(FakeByteStream(b"HTTP/1.1 200 OK\r\nContent-"),
-                                  request_method="GET")
+        await ResponseReader.read(
+            FakeByteStream(b"HTTP/1.1 200 OK\r\nContent-"), request_method="GET"
+        )

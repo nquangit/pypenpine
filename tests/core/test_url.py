@@ -1,4 +1,4 @@
-from penpine.core.url import parse_url, parse_query, build_query, set_query_param
+from penpine.core.url import parse_query, parse_url, set_query_param
 
 
 def test_parse_url_components():

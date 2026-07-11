@@ -1,12 +1,17 @@
 import penpine
 from penpine.transport import (
-    Engine, Connection, TLSConfig, ProxyConfig, Timeouts, Interceptor, RetrySignal,
+    Connection,
+    Engine,
+    Interceptor,
+    ProxyConfig,
+    RetrySignal,
+    Timeouts,
+    TLSConfig,
 )
 
 
 def test_transport_exports_exist():
-    assert all([Engine, Connection, TLSConfig, ProxyConfig, Timeouts,
-                Interceptor, RetrySignal])
+    assert all([Engine, Connection, TLSConfig, ProxyConfig, Timeouts, Interceptor, RetrySignal])
 
 
 def test_top_level_reexports_engine():

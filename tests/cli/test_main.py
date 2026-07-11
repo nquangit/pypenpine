@@ -19,8 +19,10 @@ def test_main_returns_two_on_cli_error(tmp_path):
 
 
 def test_python_m_penpine_smoke(tmp_path):
-    result = subprocess.run([sys.executable, "-m", "penpine", "new", "eng",
-                             "--dir", str(tmp_path), "--no-venv"],
-                            capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-m", "penpine", "new", "eng", "--dir", str(tmp_path), "--no-venv"],
+        capture_output=True,
+        text=True,
+    )
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "eng" / "samples" / "custom_payload.py").exists()

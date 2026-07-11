@@ -1,4 +1,5 @@
 """Attack-framework data model. Pure data, no network."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,7 +17,7 @@ class InjectionPoint:
     attack_types: tuple = ()
 
     @classmethod
-    def from_locator(cls, loc) -> "InjectionPoint":
+    def from_locator(cls, loc) -> InjectionPoint:
         kind = loc.kind
         name = getattr(loc, "name", "") or ""
         expr = kind if kind in _REQUEST_LINE_KINDS else f"{kind}:{name}"

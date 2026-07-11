@@ -1,4 +1,5 @@
 """Session: auth material produced by a login/refresh, plus expiry metadata."""
+
 from __future__ import annotations
 
 import time

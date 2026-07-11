@@ -1,4 +1,5 @@
 """Data-layer exceptions."""
+
 from __future__ import annotations
 
 from penpine.exceptions import PenpineError

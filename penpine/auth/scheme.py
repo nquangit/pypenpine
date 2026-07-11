@@ -1,11 +1,12 @@
 """AuthScheme: how a Session is applied to a Request."""
+
 from __future__ import annotations
 
 import base64
 
+from penpine.auth.session import Session
 from penpine.core.cookies import parse_cookie_header
 from penpine.core.message import Request
-from penpine.auth.session import Session
 
 
 class AuthScheme:

@@ -1,17 +1,20 @@
 import pytest
 
-from penpine.core.message import Request
 from penpine.core.headers import Headers
+from penpine.core.message import Request
 from penpine.data.context import Context
-from penpine.data.profile import DataProfile
-from penpine.data.template import render, build_mapping
 from penpine.data.exceptions import TemplateError
+from penpine.data.profile import DataProfile
+from penpine.data.template import build_mapping, render
 
 
 def test_render_substitutes_target_header_body():
-    req = Request(method="POST", target="/orders/{{order_id}}",
-                  headers=Headers([("Host", "h"), ("X-Trace", "{{trace}}")]),
-                  body=b"id={{order_id}}")
+    req = Request(
+        method="POST",
+        target="/orders/{{order_id}}",
+        headers=Headers([("Host", "h"), ("X-Trace", "{{trace}}")]),
+        body=b"id={{order_id}}",
+    )
     out = render(req, {"order_id": "123", "trace": "abc"})
     assert out.target == "/orders/123"
     assert out.headers["X-Trace"] == "abc"

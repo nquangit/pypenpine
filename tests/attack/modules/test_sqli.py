@@ -1,10 +1,14 @@
 import re
 
-from penpine.core.parse.http_parser import parse_response
 from penpine.attack.models import InjectionPoint
 from penpine.attack.modules.sqli import (
-    SqliGenerator, SqliValidator, SQLI_PAYLOADS, SQLI_NUMERIC_PAYLOADS, SQLI_MODULE,
+    SQLI_MODULE,
+    SQLI_NUMERIC_PAYLOADS,
+    SQLI_PAYLOADS,
+    SqliGenerator,
+    SqliValidator,
 )
+from penpine.core.parse.http_parser import parse_response
 
 
 def pt(value):

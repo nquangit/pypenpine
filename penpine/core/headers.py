@@ -1,7 +1,8 @@
 """Ordered, case-preserving, multi-valued HTTP headers (immutable)."""
+
 from __future__ import annotations
 
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 
 class Headers:
@@ -45,15 +46,15 @@ class Headers:
     def __eq__(self, other) -> bool:
         return isinstance(other, Headers) and self._items == other._items
 
-    def add(self, name: str, value: str) -> "Headers":
+    def add(self, name: str, value: str) -> Headers:
         return Headers([*self._items, (name, value)])
 
-    def set(self, name: str, value: str) -> "Headers":
+    def set(self, name: str, value: str) -> Headers:
         low = name.lower()
         kept = [(n, v) for n, v in self._items if n.lower() != low]
         return Headers([*kept, (name, value)])
 
-    def remove(self, name: str) -> "Headers":
+    def remove(self, name: str) -> Headers:
         low = name.lower()
         return Headers([(n, v) for n, v in self._items if n.lower() != low])
 

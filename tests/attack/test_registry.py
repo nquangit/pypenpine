@@ -1,10 +1,10 @@
 import pytest
 
 from penpine.attack import registry
-from penpine.attack.module import AttackModule
-from penpine.attack.generator import PayloadGenerator
-from penpine.attack.validator import Validator
 from penpine.attack.exceptions import AttackConfigError
+from penpine.attack.generator import PayloadGenerator
+from penpine.attack.module import AttackModule
+from penpine.attack.validator import Validator
 
 
 class G(PayloadGenerator):

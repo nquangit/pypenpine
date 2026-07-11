@@ -1,4 +1,5 @@
 """application/x-www-form-urlencoded body view."""
+
 from __future__ import annotations
 
 from penpine.core.url import build_query, parse_query
@@ -9,7 +10,7 @@ class FormBody:
         self._fields = list(fields)
 
     @classmethod
-    def from_bytes(cls, raw: bytes) -> "FormBody":
+    def from_bytes(cls, raw: bytes) -> FormBody:
         return cls(parse_query(raw.decode("utf-8", errors="replace")))
 
     @property
@@ -22,7 +23,7 @@ class FormBody:
                 return v
         return default
 
-    def set(self, name: str, value: str) -> "FormBody":
+    def set(self, name: str, value: str) -> FormBody:
         replaced = False
         out: list[tuple[str, str]] = []
         for k, v in self._fields:

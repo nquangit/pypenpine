@@ -1,4 +1,5 @@
 """multipart/form-data body view (raw-preserving per-part content)."""
+
 from __future__ import annotations
 
 import re
@@ -28,7 +29,7 @@ class MultipartBody:
         return content_type.split("boundary=", 1)[1].strip().strip('"')
 
     @classmethod
-    def from_bytes(cls, raw: bytes, content_type: str | None) -> "MultipartBody":
+    def from_bytes(cls, raw: bytes, content_type: str | None) -> MultipartBody:
         boundary = cls._boundary_from_ct(content_type)
         delim = b"--" + boundary.encode()
         parts: list[Part] = []
@@ -51,11 +52,8 @@ class MultipartBody:
                 return p.content
         return default
 
-    def set(self, name: str, content: bytes) -> "MultipartBody":
-        out = [
-            Part(p.name, p.headers, content) if p.name == name else p
-            for p in self._parts
-        ]
+    def set(self, name: str, content: bytes) -> MultipartBody:
+        out = [Part(p.name, p.headers, content) if p.name == name else p for p in self._parts]
         return MultipartBody(self._boundary, out)
 
     def to_bytes(self) -> bytes:

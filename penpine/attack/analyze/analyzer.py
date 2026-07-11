@@ -1,11 +1,12 @@
 """analyze(): classify a request's injection candidates into tagged points."""
+
 from __future__ import annotations
 
 import dataclasses
 
-from penpine.attack.models import InjectionPoint
 from penpine.attack.analyze.analysis import Analysis
 from penpine.attack.analyze.rules import DEFAULT_RULES
+from penpine.attack.models import InjectionPoint
 
 
 def analyze(request, *, rules=None, kinds=None) -> Analysis:

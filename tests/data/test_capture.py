@@ -2,10 +2,10 @@ import pytest
 
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
+from penpine.data.capture import CaptureInterceptor, capture
 from penpine.data.context import Context
-from penpine.data.capture import capture, CaptureInterceptor
-from penpine.data.extract import Extract
 from penpine.data.exceptions import ExtractError
+from penpine.data.extract import Extract
 
 
 def resp_with_token():
@@ -36,8 +36,9 @@ async def test_interceptor_captures_present_values():
 async def test_interceptor_swallows_missing_and_returns_response():
     ctx = Context()
     resp = resp_with_token()
-    ic = CaptureInterceptor(ctx, [Extract("missing", header="Nope"),
-                                  Extract("t", header="X-Token")])
+    ic = CaptureInterceptor(
+        ctx, [Extract("missing", header="Nope"), Extract("t", header="X-Token")]
+    )
     out = await ic.after_receive(Request.from_url("http://h/"), resp)
     assert out is resp
     assert ctx.has("missing") is False
@@ -52,8 +53,8 @@ async def test_interceptor_before_send_is_passthrough():
 
 
 async def test_capture_interceptor_on_real_engine():
-    from penpine.transport.engine import Engine
     from penpine.core.message import Request
+    from penpine.transport.engine import Engine
 
     class StubConn:
         def __init__(self, *a, **k):
@@ -66,8 +67,7 @@ async def test_capture_interceptor_on_real_engine():
             pass
 
         async def read_response(self, method="GET"):
-            return parse_response(
-                b"HTTP/1.1 200 OK\r\nX-Token: T\r\nContent-Length: 0\r\n\r\n")
+            return parse_response(b"HTTP/1.1 200 OK\r\nX-Token: T\r\nContent-Length: 0\r\n\r\n")
 
         async def close(self):
             pass
@@ -75,6 +75,7 @@ async def test_capture_interceptor_on_real_engine():
     ctx = Context()
     engine = Engine(
         interceptors=[CaptureInterceptor(ctx, [Extract("tok", header="X-Token")])],
-        connection_factory=StubConn)
+        connection_factory=StubConn,
+    )
     await engine.send(Request.from_url("http://h:8080/"))
     assert ctx.get("tok") == "T"

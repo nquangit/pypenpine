@@ -1,5 +1,5 @@
+from penpine.attack.exceptions import AttackConfigError, AttackError
 from penpine.exceptions import PenpineError
-from penpine.attack.exceptions import AttackError, AttackConfigError
 
 
 def test_hierarchy():

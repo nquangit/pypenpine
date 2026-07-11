@@ -1,4 +1,5 @@
 import pytest
+
 from penpine.core.parse.http_parser import parse_request
 from penpine.core.serialize import serialize_request
 
@@ -21,8 +22,7 @@ def test_request_serialize_method():
 
 
 def test_roundtrip_chunked_body_is_byte_exact():
-    raw = (b"POST / HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\n\r\n"
-           b"5\r\nhello\r\n0\r\n\r\n")
+    raw = b"POST / HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n"
     assert parse_request(raw).serialize() == raw
 
 
@@ -37,7 +37,10 @@ def test_roundtrip_lf_only_preserved():
 
 
 def test_roundtrip_json_post_byte_exact():
-    raw = b'POST /a HTTP/1.1\r\nHost: h\r\nContent-Type: application/json\r\nContent-Length: 10\r\n\r\n{"a":1234}'
+    raw = (
+        b"POST /a HTTP/1.1\r\nHost: h\r\nContent-Type: application/json\r\n"
+        b'Content-Length: 10\r\n\r\n{"a":1234}'
+    )
     assert parse_request(raw).serialize() == raw
 
 

@@ -1,4 +1,5 @@
 """Parse raw bytes into Request/Response. Lenient by default."""
+
 from __future__ import annotations
 
 from penpine.core.body.base import Body
@@ -22,7 +23,7 @@ def _split_head_body(data: bytes, strict: bool) -> tuple[bytes, bytes, list[str]
             raise MalformedRequestError("LF-only line endings")
         warnings.append("LF-only line endings normalized")
     head = data[:idx]
-    body = data[idx + (4 if crlf else 2):]
+    body = data[idx + (4 if crlf else 2) :]
     if not crlf:
         head = head.replace(b"\n", b"\r\n")
     return head, body, warnings
@@ -68,9 +69,13 @@ def parse_request(data: bytes, *, strict: bool = False) -> Request:
     headers = _parse_headers(lines[1:], strict, warnings)
     body_bytes = _extract_body(headers, body)
     return Request(
-        method=method, target=target, version=version,
-        headers=headers, body=Body(body_bytes, _content_type(headers)),
-        parse_warnings=tuple(warnings), raw=data,
+        method=method,
+        target=target,
+        version=version,
+        headers=headers,
+        body=Body(body_bytes, _content_type(headers)),
+        parse_warnings=tuple(warnings),
+        raw=data,
     )
 
 
@@ -87,7 +92,11 @@ def parse_response(data: bytes, *, strict: bool = False) -> Response:
     headers = _parse_headers(lines[1:], strict, warnings)
     body_bytes = _extract_body(headers, body)
     return Response(
-        status_code=code, reason=reason, version=version,
-        headers=headers, body=Body(body_bytes, _content_type(headers)),
-        parse_warnings=tuple(warnings), raw=data,
+        status_code=code,
+        reason=reason,
+        version=version,
+        headers=headers,
+        body=Body(body_bytes, _content_type(headers)),
+        parse_warnings=tuple(warnings),
+        raw=data,
     )

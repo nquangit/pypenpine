@@ -1,8 +1,11 @@
-from penpine.core.parse.http_parser import parse_response
 from penpine.attack.models import InjectionPoint
 from penpine.attack.modules.traversal import (
-    TraversalGenerator, TraversalValidator, TRAVERSAL_PAYLOADS, TRAVERSAL_MODULE,
+    TRAVERSAL_MODULE,
+    TRAVERSAL_PAYLOADS,
+    TraversalGenerator,
+    TraversalValidator,
 )
+from penpine.core.parse.http_parser import parse_response
 
 
 def pt():

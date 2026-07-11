@@ -1,4 +1,5 @@
 """The `penpine new` command: scaffold a project, optionally build its venv."""
+
 from __future__ import annotations
 
 import shutil
@@ -13,8 +14,14 @@ from penpine.logging import get_logger
 log = get_logger(__name__)
 
 
-def run(name: str, *, target_dir: str = ".", create_venv: bool = True,
-        force: bool = False, python: str | None = None) -> Path:
+def run(
+    name: str,
+    *,
+    target_dir: str = ".",
+    create_venv: bool = True,
+    force: bool = False,
+    python: str | None = None,
+) -> Path:
     project = Path(target_dir) / name
     we_created_dir = not project.exists()
     if project.exists() and any(project.iterdir()) and not force:
@@ -22,8 +29,10 @@ def run(name: str, *, target_dir: str = ".", create_venv: bool = True,
 
     root = paths.find_penpine_root()
     if root is None:
-        log.warning("could not detect a local penpine source; requirements.txt will "
-                    "use a plain 'penpine' spec (needs penpine on an index)")
+        log.warning(
+            "could not detect a local penpine source; requirements.txt will "
+            "use a plain 'penpine' spec (needs penpine on an index)"
+        )
 
     variables = {
         "project_name": name,
@@ -52,6 +61,9 @@ def run(name: str, *, target_dir: str = ".", create_venv: bool = True,
             venv.pip_install(project)
         except VenvError as exc:
             log.warning("%s", exc)
-            log.warning("finish setup manually: cd %s && python -m venv .venv && "
-                        "source .venv/bin/activate && pip install -r requirements.txt", project)
+            log.warning(
+                "finish setup manually: cd %s && python -m venv .venv && "
+                "source .venv/bin/activate && pip install -r requirements.txt",
+                project,
+            )
     return project

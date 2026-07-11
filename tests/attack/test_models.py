@@ -1,7 +1,11 @@
-from penpine.core.message import Request
 from penpine.attack.models import (
-    InjectionPoint, Payload, TestCase, Finding, Confidence,
+    Confidence,
+    Finding,
+    InjectionPoint,
+    Payload,
+    TestCase,
 )
+from penpine.core.message import Request
 
 
 def test_from_locator_param():
@@ -25,8 +29,9 @@ def test_from_locator_request_line_kind():
 
 def test_from_locator_json():
     req = Request.from_raw(
-        b'POST / HTTP/1.1\r\nHost: h\r\nContent-Type: application/json\r\n'
-        b'Content-Length: 14\r\n\r\n{"user":"ann"}')
+        b"POST / HTTP/1.1\r\nHost: h\r\nContent-Type: application/json\r\n"
+        b'Content-Length: 14\r\n\r\n{"user":"ann"}'
+    )
     loc = req.locate("json:$.user")
     point = InjectionPoint.from_locator(loc)
     assert point.expr == "json:$.user"
@@ -47,13 +52,18 @@ def test_payload_and_testcase_defaults():
 
 def test_confidence_ordering():
     assert Confidence.HIGH > Confidence.LOW
-    assert Confidence.MEDIUM == Confidence(2)
+    assert Confidence(2) == Confidence.MEDIUM
 
 
 def test_finding_defaults():
     point = InjectionPoint("param:a", "param", "a", "1")
-    f = Finding(attack_type="sqli", point=point, payload=Payload("x"),
-                confidence=Confidence.HIGH, evidence="sql error in body")
+    f = Finding(
+        attack_type="sqli",
+        point=point,
+        payload=Payload("x"),
+        confidence=Confidence.HIGH,
+        evidence="sql error in body",
+    )
     assert f.request is None
     assert f.response is None
     assert f.meta == {}

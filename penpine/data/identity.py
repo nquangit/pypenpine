@@ -1,4 +1,5 @@
 """Identity: an actor bundling auth/manager + data + context."""
+
 from __future__ import annotations
 
 from penpine.data.capture import capture
@@ -9,8 +10,9 @@ from penpine.data.template import build_mapping, render
 
 
 class Identity:
-    def __init__(self, name, *, auth_profile=None, manager=None, data=None,
-                 context=None, **manager_kw):
+    def __init__(
+        self, name, *, auth_profile=None, manager=None, data=None, context=None, **manager_kw
+    ):
         self.name = name
         self.auth_profile = auth_profile
         if manager is not None:

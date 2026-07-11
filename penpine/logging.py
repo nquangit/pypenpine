@@ -1,4 +1,5 @@
 """Shared logging for penpine. No side effects at import time."""
+
 from __future__ import annotations
 
 import logging

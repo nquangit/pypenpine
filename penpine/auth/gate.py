@@ -4,6 +4,7 @@ Correctness is guarded by a single asyncio.Condition: all transitions of the
 open-flag and in-flight counter happen under its lock, and waiters re-check
 their predicate after every wake.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -1,10 +1,12 @@
 """Reusable value heuristics for classification and payload tailoring."""
+
 from __future__ import annotations
 
 import re
 
 _UUID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _INT_RE = re.compile(r"^[+-]?\d+$")
 _BOOL_VALUES = {"true", "false", "0", "1", "yes", "no"}

@@ -1,5 +1,6 @@
 import logging
-from penpine.logging import get_logger, configure_logging
+
+from penpine.logging import configure_logging, get_logger
 
 
 def test_get_logger_returns_namespaced_logger():

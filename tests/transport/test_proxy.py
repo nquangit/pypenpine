@@ -1,7 +1,8 @@
 import pytest
+
+from penpine.transport.exceptions import ProxyError
 from penpine.transport.proxy import ProxyConfig
 from penpine.transport.stream import FakeByteStream
-from penpine.transport.exceptions import ProxyError
 
 
 def test_from_url_http_with_creds():
@@ -85,8 +86,7 @@ async def test_establish_closes_stream_on_handshake_failure():
 
 async def test_socks5_userpass_auth_success():
     # greeting reply (method 0x02) + auth success (\x01\x00) + connect ok + ipv4 bound addr
-    reply = (b"\x05\x02" + b"\x01\x00" + b"\x05\x00\x00\x01"
-             + b"\x00\x00\x00\x00\x00\x00")
+    reply = b"\x05\x02" + b"\x01\x00" + b"\x05\x00\x00\x01" + b"\x00\x00\x00\x00\x00\x00"
     stream = FakeByteStream(reply)
 
     async def opener(host, port):
@@ -95,12 +95,12 @@ async def test_socks5_userpass_auth_success():
     p = ProxyConfig.from_url("socks5://user:pw@127.0.0.1:1080")
     out = await p.establish(opener, "t.com", 80)
     assert out is stream
-    assert stream.sent.startswith(b"\x05\x02\x00\x02")        # greeting offers auth
-    assert b"\x01\x04user\x02pw" in bytes(stream.sent)        # auth sub-negotiation
+    assert stream.sent.startswith(b"\x05\x02\x00\x02")  # greeting offers auth
+    assert b"\x01\x04user\x02pw" in bytes(stream.sent)  # auth sub-negotiation
 
 
 async def test_socks5_auth_failure_raises():
-    reply = b"\x05\x02" + b"\x01\x01"   # auth rejected
+    reply = b"\x05\x02" + b"\x01\x01"  # auth rejected
     stream = FakeByteStream(reply)
 
     async def opener(host, port):

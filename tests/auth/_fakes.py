@@ -1,4 +1,5 @@
 """Async engine stub for auth tests (no sockets)."""
+
 import asyncio
 
 from penpine.core.parse.http_parser import parse_response
@@ -23,4 +24,5 @@ class FakeEngine:
 
     async def send_many(self, requests, *, return_exceptions=False):
         return await asyncio.gather(
-            *(self.send(r) for r in requests), return_exceptions=return_exceptions)
+            *(self.send(r) for r in requests), return_exceptions=return_exceptions
+        )

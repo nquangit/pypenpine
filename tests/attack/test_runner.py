@@ -1,15 +1,15 @@
 import pytest
 
-from penpine.core.message import Request
 from penpine.attack import registry
-from penpine.attack.module import AttackModule
-from penpine.attack.example import EchoGenerator, EchoValidator
-from penpine.attack.generator import PayloadGenerator
-from penpine.attack.validator import Validator
-from penpine.attack.models import InjectionPoint, Payload, TestCase
 from penpine.attack.analyze.analyzer import analyze
+from penpine.attack.example import EchoGenerator, EchoValidator
 from penpine.attack.exceptions import AttackConfigError
+from penpine.attack.generator import PayloadGenerator
+from penpine.attack.models import InjectionPoint, Payload, TestCase
+from penpine.attack.module import AttackModule
 from penpine.attack.runner import Runner
+from penpine.attack.validator import Validator
+from penpine.core.message import Request
 from tests.attack._fakes import FakeSender, reflect
 
 
@@ -70,7 +70,8 @@ async def test_error_isolation_records_errors_and_completes():
             raise RuntimeError("net down")
 
     report = await Runner(sender=FailingSender()).run(
-        Request.from_url("http://h/?q=hi"), attack="xss")
+        Request.from_url("http://h/?q=hi"), attack="xss"
+    )
     assert report.baseline is None
     assert len(report) == 1
     assert report.attempts[0].error is not None
@@ -92,14 +93,12 @@ async def test_baseline_passed_to_validator():
 
     req = Request.from_url("http://h/?a=1")
     module = AttackModule("probe", G(), V(), applies_to=("param",))
-    await Runner(sender=FakeSender([reflect])).run(
-        req, module=module, points=analyze(req).all())
+    await Runner(sender=FakeSender([reflect])).run(req, module=module, points=analyze(req).all())
     assert captured["baseline"] is not None
 
 
 async def test_unknown_attack_and_no_selector_raise():
     with pytest.raises(AttackConfigError):
-        await Runner(sender=FakeSender([reflect])).run(
-            Request.from_url("http://h/"), attack="nope")
+        await Runner(sender=FakeSender([reflect])).run(Request.from_url("http://h/"), attack="nope")
     with pytest.raises(AttackConfigError):
         await Runner(sender=FakeSender([reflect])).run(Request.from_url("http://h/"))

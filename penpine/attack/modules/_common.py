@@ -1,4 +1,5 @@
 """Shared helpers for attack modules."""
+
 from __future__ import annotations
 
 import secrets

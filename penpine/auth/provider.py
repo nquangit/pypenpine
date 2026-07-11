@@ -1,4 +1,5 @@
 """AuthProvider: login/refresh/validate flows, plus ready-made providers."""
+
 from __future__ import annotations
 
 import time
@@ -26,8 +27,16 @@ def _check_2xx(resp) -> None:
 
 
 class JsonLoginProvider(AuthProvider):
-    def __init__(self, url, payload, *, method="POST", token_path="$.access_token",
-                 expires_path=None, headers=None):
+    def __init__(
+        self,
+        url,
+        payload,
+        *,
+        method="POST",
+        token_path="$.access_token",
+        expires_path=None,
+        headers=None,
+    ):
         self._url = url
         self._payload = payload
         self._method = method

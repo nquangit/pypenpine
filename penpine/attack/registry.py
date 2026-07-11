@@ -1,4 +1,5 @@
 """Module-global registry of attack modules, selectable by name."""
+
 from __future__ import annotations
 
 from penpine.attack.exceptions import AttackConfigError

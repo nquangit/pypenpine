@@ -1,4 +1,5 @@
 """Fake sender for runner tests (no sockets)."""
+
 import re
 
 from penpine.core.parse.http_parser import parse_response

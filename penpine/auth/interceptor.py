@@ -3,6 +3,7 @@
 Does NOT provide the in-flight drain barrier (the L1 hooks cannot span the
 network call). Use SessionManager.send for the full gated path.
 """
+
 from __future__ import annotations
 
 from penpine.transport.interceptor import Interceptor, RetrySignal

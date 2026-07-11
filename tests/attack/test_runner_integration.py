@@ -1,8 +1,8 @@
 import pytest
 
 import penpine
+from penpine.attack import ECHO_MODULE, Attempt, Report, Runner, registry
 from penpine.core.message import Request
-from penpine.attack import Runner, Report, Attempt, registry, ECHO_MODULE
 from tests.attack._fakes import FakeSender, reflect
 
 
@@ -19,10 +19,12 @@ def test_runner_exposed_at_top_level():
 
 async def test_end_to_end_echo_module_via_registry():
     from penpine.attack.analyze import analyze
+
     registry.register(ECHO_MODULE)
     req = Request.from_url("http://h/?token=abc")
     report = await Runner(sender=FakeSender([reflect])).run(
-        req, module=registry.get("echo"), points=analyze(req).all())
+        req, module=registry.get("echo"), points=analyze(req).all()
+    )
     assert isinstance(report, Report)
     assert report.findings
     assert all(isinstance(a, Attempt) for a in report)

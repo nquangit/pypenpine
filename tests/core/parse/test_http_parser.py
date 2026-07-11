@@ -1,4 +1,5 @@
 import pytest
+
 from penpine.core.parse.http_parser import parse_request, parse_response
 from penpine.exceptions import MalformedRequestError
 
