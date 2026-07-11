@@ -1,4 +1,5 @@
 """Classification rules mapping injection points to attack-type tags."""
+
 from __future__ import annotations
 
 from penpine.attack.analyze.detectors import is_empty, is_numeric, is_path, is_url
@@ -6,12 +7,27 @@ from penpine.attack.analyze.detectors import is_empty, is_numeric, is_path, is_u
 _BODY_KINDS = {"param", "form", "json", "multipart"}
 _PATH_KINDS = {"param", "form", "json", "multipart", "cookie"}
 _ID_NAMES = {"id", "uid", "user", "userid", "account", "order", "pid"}
-_REDIRECT_NAMES = {"url", "redirect", "redirect_uri", "next", "return",
-                   "returnurl", "dest", "destination", "callback"}
-_FILE_NAMES = {"file", "path", "page", "template", "include", "doc",
-               "document", "filename"}
-_PROXY_HEADERS = {"x-forwarded-for", "x-forwarded-host", "forwarded", "referer",
-                  "user-agent", "x-real-ip", "true-client-ip"}
+_REDIRECT_NAMES = {
+    "url",
+    "redirect",
+    "redirect_uri",
+    "next",
+    "return",
+    "returnurl",
+    "dest",
+    "destination",
+    "callback",
+}
+_FILE_NAMES = {"file", "path", "page", "template", "include", "doc", "document", "filename"}
+_PROXY_HEADERS = {
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "forwarded",
+    "referer",
+    "user-agent",
+    "x-real-ip",
+    "true-client-ip",
+}
 _SEARCH_NAMES = {"q", "query", "search", "s", "keyword", "term"}
 
 
@@ -31,8 +47,7 @@ class StringContextRule(ClassificationRule):
     name = "string-context"
 
     def match(self, point) -> set:
-        if point.kind in _BODY_KINDS and not is_empty(point.value) \
-                and not is_numeric(point.value):
+        if point.kind in _BODY_KINDS and not is_empty(point.value) and not is_numeric(point.value):
             return {"sqli", "xss"}
         return set()
 

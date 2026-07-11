@@ -1,4 +1,5 @@
 """Fluent RequestBuilder."""
+
 from __future__ import annotations
 
 import json as _json
@@ -17,33 +18,33 @@ class RequestBuilder:
         self._body = b""
         self._content_type = None
 
-    def method(self, m: str) -> "RequestBuilder":
+    def method(self, m: str) -> RequestBuilder:
         self._method = m
         return self
 
-    def url(self, u: str) -> "RequestBuilder":
+    def url(self, u: str) -> RequestBuilder:
         self._url = u
         return self
 
-    def version(self, v: str) -> "RequestBuilder":
+    def version(self, v: str) -> RequestBuilder:
         self._version = v
         return self
 
-    def header(self, name: str, value: str) -> "RequestBuilder":
+    def header(self, name: str, value: str) -> RequestBuilder:
         self._headers.append((name, value))
         return self
 
-    def body(self, data: bytes, content_type: str | None = None) -> "RequestBuilder":
+    def body(self, data: bytes, content_type: str | None = None) -> RequestBuilder:
         self._body = data if isinstance(data, bytes) else str(data).encode()
         self._content_type = content_type
         return self
 
-    def json(self, obj) -> "RequestBuilder":
+    def json(self, obj) -> RequestBuilder:
         self._body = _json.dumps(obj).encode("utf-8")
         self._content_type = "application/json"
         return self
 
-    def form(self, fields: dict) -> "RequestBuilder":
+    def form(self, fields: dict) -> RequestBuilder:
         self._body = FormBody(list(fields.items())).to_bytes()
         self._content_type = "application/x-www-form-urlencoded"
         return self

@@ -1,12 +1,12 @@
 import pytest
 
-from penpine.core.message import Request
 from penpine.core.headers import Headers
-from penpine.data.identity import Identity
+from penpine.core.message import Request
 from penpine.data.context import Context
-from penpine.data.profile import DataProfile
-from penpine.data.extract import Extract
 from penpine.data.exceptions import DataError
+from penpine.data.extract import Extract
+from penpine.data.identity import Identity
+from penpine.data.profile import DataProfile
 from tests.auth._fakes import FakeEngine
 
 
@@ -39,6 +39,7 @@ def test_render_merges_data_and_ctx_with_ctx_override():
 
 def test_capture_writes_to_identity_context():
     from penpine.core.parse.http_parser import parse_response
+
     ctx = Context()
     ident = Identity("A", context=ctx)
     resp = parse_response(b"HTTP/1.1 200 OK\r\nX-Token: tk\r\nContent-Length: 0\r\n\r\n")
@@ -58,7 +59,6 @@ def test_send_sync_delegates_and_no_manager_raises():
         def send_sync(self, request, **kw):
             return "RESP"
 
-    assert Identity("A", manager=SyncStub()).send_sync(
-        Request.from_url("http://h/")) == "RESP"
+    assert Identity("A", manager=SyncStub()).send_sync(Request.from_url("http://h/")) == "RESP"
     with pytest.raises(DataError):
         Identity("A").send_sync(Request.from_url("http://h/"))

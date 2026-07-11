@@ -1,6 +1,10 @@
 from penpine.exceptions import (
-    PenpineError, ParseError, MalformedRequestError,
-    BodyParseError, LocatorError, BuildError,
+    BodyParseError,
+    BuildError,
+    LocatorError,
+    MalformedRequestError,
+    ParseError,
+    PenpineError,
 )
 
 

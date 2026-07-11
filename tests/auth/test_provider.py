@@ -1,7 +1,7 @@
 import pytest
 
-from penpine.auth.provider import AuthProvider, JsonLoginProvider, FormLoginProvider
 from penpine.auth.exceptions import LoginError
+from penpine.auth.provider import AuthProvider, FormLoginProvider, JsonLoginProvider
 from tests.auth._fakes import FakeEngine
 
 
@@ -16,6 +16,7 @@ async def test_json_provider_extracts_token():
 
 async def test_json_provider_reads_expiry_ttl():
     import time
+
     raw = b'HTTP/1.1 200 OK\r\nContent-Length: 36\r\n\r\n{"access_token":"T","expires_in":60}'
     engine = FakeEngine([raw])
     p = JsonLoginProvider("http://h/login", {}, expires_path="$.expires_in")
@@ -39,8 +40,10 @@ async def test_json_provider_missing_token_raises():
 
 
 async def test_form_provider_captures_cookies():
-    raw = (b"HTTP/1.1 200 OK\r\nSet-Cookie: sid=abc; Path=/\r\n"
-           b"Set-Cookie: csrf=xyz\r\nContent-Length: 0\r\n\r\n")
+    raw = (
+        b"HTTP/1.1 200 OK\r\nSet-Cookie: sid=abc; Path=/\r\n"
+        b"Set-Cookie: csrf=xyz\r\nContent-Length: 0\r\n\r\n"
+    )
     engine = FakeEngine([raw])
     p = FormLoginProvider("http://h/login", {"user": "a", "pass": "b"})
     session = await p.login(engine)

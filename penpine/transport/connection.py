@@ -1,4 +1,5 @@
 """A persistent transport connection: open (direct/proxy/TLS), send, read."""
+
 from __future__ import annotations
 
 from penpine.transport.reader import ResponseReader
@@ -8,8 +9,9 @@ from penpine.transport.tls import TLSConfig
 
 
 class Connection:
-    def __init__(self, host, port, *, use_tls=False, tls=None, proxy=None,
-                 timeouts=None, stream_opener=None):
+    def __init__(
+        self, host, port, *, use_tls=False, tls=None, proxy=None, timeouts=None, stream_opener=None
+    ):
         self.host = host
         self.port = port
         self.use_tls = use_tls
@@ -19,10 +21,12 @@ class Connection:
         self._opener = stream_opener or open_asyncio_stream
         self._stream = None
 
-    async def open(self) -> "Connection":
+    async def open(self) -> Connection:
         if self.proxy is not None and (self.proxy.scheme == "socks5" or self.use_tls):
+
             async def open_to(host, port):
                 return await self._opener(host, port, self.timeouts)
+
             self._stream = await self.proxy.establish(open_to, self.host, self.port)
         elif self.proxy is not None:
             # plain HTTP via HTTP proxy: connect to the proxy directly (no CONNECT);

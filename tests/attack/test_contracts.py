@@ -1,8 +1,8 @@
 import pytest
 
 from penpine.attack.generator import PayloadGenerator
+from penpine.attack.models import Confidence, Finding, InjectionPoint, Payload, TestCase
 from penpine.attack.validator import Validator
-from penpine.attack.models import InjectionPoint, Payload, TestCase, Finding, Confidence
 
 
 def test_abcs_cannot_be_instantiated():
@@ -21,9 +21,13 @@ def test_concrete_generator_and_validator_work():
 
     class V(Validator):
         def evaluate(self, test_case, response, baseline):
-            return Finding(attack_type="t", point=test_case.point,
-                           payload=test_case.payload, confidence=Confidence.LOW,
-                           evidence="ok")
+            return Finding(
+                attack_type="t",
+                point=test_case.point,
+                payload=test_case.payload,
+                confidence=Confidence.LOW,
+                evidence="ok",
+            )
 
     cases = list(G().generate(point, object()))
     assert len(cases) == 1 and cases[0].attack_type == "t"

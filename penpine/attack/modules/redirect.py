@@ -1,4 +1,5 @@
 """Open-redirect module."""
+
 from __future__ import annotations
 
 from penpine.attack.generator import PayloadGenerator
@@ -17,8 +18,11 @@ class RedirectGenerator(PayloadGenerator):
 
     def generate(self, point, request):
         for value in self._payloads:
-            yield TestCase(point=point, payload=Payload(value, technique="redirect"),
-                           attack_type="open-redirect")
+            yield TestCase(
+                point=point,
+                payload=Payload(value, technique="redirect"),
+                attack_type="open-redirect",
+            )
 
 
 class RedirectValidator(Validator):
@@ -29,12 +33,22 @@ class RedirectValidator(Validator):
         if response.status_code in _REDIRECT_STATUSES:
             location = response.headers.get("Location", "")
             if self._host in location:
-                return Finding("open-redirect", test_case.point, test_case.payload,
-                               Confidence.HIGH, f"redirect Location to canary: {location}",
-                               request=test_case.request, response=response)
+                return Finding(
+                    "open-redirect",
+                    test_case.point,
+                    test_case.payload,
+                    Confidence.HIGH,
+                    f"redirect Location to canary: {location}",
+                    request=test_case.request,
+                    response=response,
+                )
         return None
 
 
-REDIRECT_MODULE = AttackModule("open-redirect", RedirectGenerator(), RedirectValidator(),
-                               applies_to=("param", "form", "json"),
-                               description="open redirect")
+REDIRECT_MODULE = AttackModule(
+    "open-redirect",
+    RedirectGenerator(),
+    RedirectValidator(),
+    applies_to=("param", "form", "json"),
+    description="open redirect",
+)

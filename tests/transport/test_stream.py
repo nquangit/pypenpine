@@ -1,6 +1,7 @@
 import pytest
-from penpine.transport.stream import FakeByteStream
+
 from penpine.transport.exceptions import IncompleteResponseError
+from penpine.transport.stream import FakeByteStream
 
 
 async def test_read_returns_up_to_n_then_empty_on_eof():

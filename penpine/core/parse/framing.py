@@ -1,4 +1,5 @@
 """HTTP/1.1 body framing: Content-Length and chunked decoding."""
+
 from __future__ import annotations
 
 from penpine.core.headers import Headers
@@ -42,5 +43,5 @@ def decode_chunked(data: bytes) -> tuple[bytes, int]:
                 pos = end + 2
         if pos + size + 2 > len(data):
             raise ParseError("incomplete chunk data", offset=pos)
-        out += data[pos:pos + size]
+        out += data[pos : pos + size]
         pos += size + 2

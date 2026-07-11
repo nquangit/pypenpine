@@ -1,4 +1,5 @@
 """Runner: analyze -> generate -> send -> validate -> Report."""
+
 from __future__ import annotations
 
 import asyncio
@@ -36,8 +37,17 @@ class Runner:
         selected = analysis.for_attack(attack_type) if attack_type else analysis.all()
         return [p for p in selected if module is None or module.applies(p.kind)]
 
-    async def run(self, request, *, attack=None, module=None, test_cases=None,
-                  points=None, validator=None, sender=None):
+    async def run(
+        self,
+        request,
+        *,
+        attack=None,
+        module=None,
+        test_cases=None,
+        points=None,
+        validator=None,
+        sender=None,
+    ):
         """Run an attack and return a Report.
 
         Provide one of: `attack` (module name resolved from the registry),
@@ -57,8 +67,7 @@ class Runner:
 
         if test_cases is None:
             if module is None:
-                raise AttackConfigError(
-                    "run() requires one of attack=, module=, or test_cases=")
+                raise AttackConfigError("run() requires one of attack=, module=, or test_cases=")
             cases = []
             for point in self._select_points(request, module, attack_type, points):
                 cases.extend(module.generate(point, request))
@@ -80,14 +89,18 @@ class Runner:
                 return await self._attempt(request, tc, validator, baseline, active_sender)
 
         attempts = list(await asyncio.gather(*(_bounded(tc) for tc in test_cases)))
-        return Report(request=request, attack_type=attack_type,
-                      baseline=baseline, attempts=attempts)
+        return Report(
+            request=request, attack_type=attack_type, baseline=baseline, attempts=attempts
+        )
 
     async def _attempt(self, base, test_case, validator, baseline, sender):
         start = time.perf_counter()
         try:
-            req = (test_case.request if test_case.request is not None
-                   else base.replace_at(test_case.point.expr, test_case.payload.value))
+            req = (
+                test_case.request
+                if test_case.request is not None
+                else base.replace_at(test_case.point.expr, test_case.payload.value)
+            )
         except Exception as exc:
             return Attempt(test_case=test_case, error=exc)
 
@@ -95,32 +108,44 @@ class Runner:
         try:
             response = await sender.send(req)
         except Exception as exc:
-            return Attempt(test_case=sent_tc, request=req, error=exc,
-                           elapsed_ms=(time.perf_counter() - start) * 1000)
+            return Attempt(
+                test_case=sent_tc,
+                request=req,
+                error=exc,
+                elapsed_ms=(time.perf_counter() - start) * 1000,
+            )
 
         finding = None
         if validator is not None:
             try:
                 finding = validator.evaluate(sent_tc, response, baseline)
             except Exception as exc:
-                return Attempt(test_case=sent_tc, request=req, response=response,
-                               error=exc, elapsed_ms=(time.perf_counter() - start) * 1000)
+                return Attempt(
+                    test_case=sent_tc,
+                    request=req,
+                    response=response,
+                    error=exc,
+                    elapsed_ms=(time.perf_counter() - start) * 1000,
+                )
 
-        return Attempt(test_case=sent_tc, request=req, response=response,
-                       finding=finding, elapsed_ms=(time.perf_counter() - start) * 1000)
+        return Attempt(
+            test_case=sent_tc,
+            request=req,
+            response=response,
+            finding=finding,
+            elapsed_ms=(time.perf_counter() - start) * 1000,
+        )
 
     def _ensure_loop(self):
         with self._loop_lock:
             if self._loop is None:
                 self._loop = asyncio.new_event_loop()
-                self._loop_thread = threading.Thread(
-                    target=self._loop.run_forever, daemon=True)
+                self._loop_thread = threading.Thread(target=self._loop.run_forever, daemon=True)
                 self._loop_thread.start()
 
     def run_sync(self, request, **kwargs):
         self._ensure_loop()
-        future = asyncio.run_coroutine_threadsafe(
-            self.run(request, **kwargs), self._loop)
+        future = asyncio.run_coroutine_threadsafe(self.run(request, **kwargs), self._loop)
         return future.result()
 
     def close(self):

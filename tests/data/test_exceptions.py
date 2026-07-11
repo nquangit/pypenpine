@@ -1,5 +1,5 @@
-from penpine.exceptions import PenpineError
 from penpine.data.exceptions import DataError, ExtractError, TemplateError
+from penpine.exceptions import PenpineError
 
 
 def test_hierarchy():

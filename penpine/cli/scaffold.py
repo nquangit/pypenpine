@@ -1,4 +1,5 @@
 """Render the project template tree into a destination directory."""
+
 from __future__ import annotations
 
 import re
@@ -17,12 +18,13 @@ def _render_text(text: str, variables: dict) -> str:
         if key not in variables:
             raise ScaffoldError(f"unknown template variable {{{{ {key} }}}}")
         return str(variables[key])
+
     return _PLACEHOLDER.sub(_sub, text)
 
 
 def _map_segment(segment: str) -> str:
     if segment.startswith("dot-"):
-        return "." + segment[len("dot-"):]
+        return "." + segment[len("dot-") :]
     return segment
 
 

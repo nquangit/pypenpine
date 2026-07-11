@@ -1,10 +1,10 @@
 import pytest
 
+from penpine.attack import registry
+from penpine.attack.example import ECHO_MODULE, EchoGenerator, EchoValidator
+from penpine.attack.models import InjectionPoint
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
-from penpine.attack import registry
-from penpine.attack.example import EchoGenerator, EchoValidator, ECHO_MODULE
-from penpine.attack.models import InjectionPoint
 
 
 @pytest.fixture(autouse=True)
@@ -32,8 +32,8 @@ def test_validator_detects_reflection():
     cases = list(EchoGenerator().generate(point(), object()))
     tc = cases[0]
     reflecting = parse_response(
-        b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s"
-        % (len(tc.marker), tc.marker.encode()))
+        b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(tc.marker), tc.marker.encode())
+    )
     finding = EchoValidator().evaluate(tc, reflecting, None)
     assert finding is not None
     assert finding.attack_type == "echo"
@@ -53,6 +53,6 @@ def test_echo_module_round_trip_via_registry():
     assert m.applies("param") is True
     tc = list(m.generate(point(), object()))[0]
     reflecting = parse_response(
-        b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s"
-        % (len(tc.marker), tc.marker.encode()))
+        b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(tc.marker), tc.marker.encode())
+    )
     assert m.evaluate(tc, reflecting) is not None

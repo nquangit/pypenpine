@@ -1,12 +1,12 @@
 import pytest
 
-from penpine.core.message import Request
-from penpine.core.parse.http_parser import parse_response
 from penpine.auth.interceptor import AuthInterceptor
 from penpine.auth.manager import SessionManager
 from penpine.auth.provider import AuthProvider
 from penpine.auth.scheme import BearerAuth
 from penpine.auth.session import Session
+from penpine.core.message import Request
+from penpine.core.parse.http_parser import parse_response
 from penpine.transport.interceptor import RetrySignal
 from tests.auth._fakes import FakeEngine
 

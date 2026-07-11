@@ -1,7 +1,7 @@
-from penpine.attack.module import AttackModule
 from penpine.attack.generator import PayloadGenerator
+from penpine.attack.models import Confidence, Finding, InjectionPoint, Payload, TestCase
+from penpine.attack.module import AttackModule
 from penpine.attack.validator import Validator
-from penpine.attack.models import InjectionPoint, Payload, TestCase, Finding, Confidence
 
 
 class G(PayloadGenerator):
@@ -11,9 +11,13 @@ class G(PayloadGenerator):
 
 class V(Validator):
     def evaluate(self, test_case, response, baseline):
-        return Finding(attack_type="t", point=test_case.point,
-                       payload=test_case.payload, confidence=Confidence.HIGH,
-                       evidence="hit")
+        return Finding(
+            attack_type="t",
+            point=test_case.point,
+            payload=test_case.payload,
+            confidence=Confidence.HIGH,
+            evidence="hit",
+        )
 
 
 def test_module_delegates_generate_and_evaluate():

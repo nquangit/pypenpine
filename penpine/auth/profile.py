@@ -1,4 +1,5 @@
 """AuthProfile: an identity bundling a provider + scheme into a SessionManager."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,5 +16,6 @@ class AuthProfile:
     scheme: AuthScheme
 
     def manager(self, *, auth_engine=None, send_engine=None, **kwargs) -> SessionManager:
-        return SessionManager(self.provider, self.scheme,
-                              auth_engine=auth_engine, send_engine=send_engine, **kwargs)
+        return SessionManager(
+            self.provider, self.scheme, auth_engine=auth_engine, send_engine=send_engine, **kwargs
+        )

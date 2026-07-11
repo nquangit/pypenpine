@@ -1,7 +1,15 @@
 import penpine
 from penpine.auth import (
-    AuthProfile, SessionManager, Session, AuthProvider, JsonLoginProvider,
-    BearerAuth, RefreshScheduler, AuthInterceptor, RefreshGate, AuthError,
+    AuthError,
+    AuthInterceptor,
+    AuthProfile,
+    AuthProvider,
+    BearerAuth,
+    JsonLoginProvider,
+    RefreshGate,
+    RefreshScheduler,
+    Session,
+    SessionManager,
 )
 from tests.auth._fakes import FakeEngine
 
@@ -19,8 +27,17 @@ def test_profile_builds_manager():
 
 
 def test_public_exports():
-    assert all([AuthProfile, SessionManager, RefreshScheduler, AuthInterceptor,
-                RefreshGate, JsonLoginProvider, AuthError])
+    assert all(
+        [
+            AuthProfile,
+            SessionManager,
+            RefreshScheduler,
+            AuthInterceptor,
+            RefreshGate,
+            JsonLoginProvider,
+            AuthError,
+        ]
+    )
     assert hasattr(penpine, "SessionManager")
     assert hasattr(penpine, "AuthProfile")
     assert penpine.SessionManager is SessionManager

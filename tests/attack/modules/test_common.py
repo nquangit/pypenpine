@@ -1,7 +1,7 @@
 import re
 
+from penpine.attack.modules._common import body_text, marker, search_signatures
 from penpine.core.parse.http_parser import parse_response
-from penpine.attack.modules._common import marker, body_text, search_signatures
 
 
 def test_marker_unique_and_prefixed():

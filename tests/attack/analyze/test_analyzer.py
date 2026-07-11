@@ -1,13 +1,13 @@
-from penpine.core.message import Request
 from penpine.attack.analyze.analyzer import analyze
 from penpine.attack.analyze.rules import ClassificationRule
-
+from penpine.core.message import Request
 
 CRAFTED = (
     b"POST /files/1?id=7&q=hello&next=http://e.com HTTP/1.1\r\n"
     b"Host: t.com\r\nUser-Agent: x\r\n"
     b"Content-Type: application/json\r\nContent-Length: 14\r\n\r\n"
-    b'{"name":"ann"}')
+    b'{"name":"ann"}'
+)
 
 
 def _find(analysis, expr):

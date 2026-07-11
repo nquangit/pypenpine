@@ -2,16 +2,16 @@ import asyncio
 
 import pytest
 
-from penpine.core.message import Request
-from penpine.core.parse.http_parser import parse_response
 from penpine.attack import registry
-from penpine.attack.module import AttackModule
+from penpine.attack.analyze.analyzer import analyze
 from penpine.attack.example import EchoGenerator, EchoValidator
 from penpine.attack.generator import PayloadGenerator
-from penpine.attack.validator import Validator
 from penpine.attack.models import InjectionPoint, Payload, TestCase
-from penpine.attack.analyze.analyzer import analyze
+from penpine.attack.module import AttackModule
 from penpine.attack.runner import Runner
+from penpine.attack.validator import Validator
+from penpine.core.message import Request
+from penpine.core.parse.http_parser import parse_response
 from tests.attack._fakes import FakeSender, reflect
 
 
@@ -54,8 +54,8 @@ async def test_per_call_sender_override():
     override = FakeSender([reflect])
     runner = Runner(sender=default)
     await runner.run(Request.from_url("http://h/?q=hi"), attack="xss", sender=override)
-    assert override.sent          # override received the requests
-    assert not default.sent       # instance default untouched
+    assert override.sent  # override received the requests
+    assert not default.sent  # instance default untouched
 
 
 async def test_generator_provided_request_sent_verbatim():
@@ -63,14 +63,13 @@ async def test_generator_provided_request_sent_verbatim():
 
     class G(PayloadGenerator):
         def generate(self, point, request):
-            yield TestCase(point=point, payload=Payload("X"),
-                           attack_type="t", request=custom)
+            yield TestCase(point=point, payload=Payload("X"), attack_type="t", request=custom)
 
     req = Request.from_url("http://h/?a=1")
     module = AttackModule("t", G(), EchoValidator(), applies_to=("param",))
     sender = FakeSender([reflect])
     await Runner(sender=sender).run(req, module=module, points=analyze(req).all())
-    assert any(s.target == "/CUSTOM" for s in sender.sent)   # generator request honored
+    assert any(s.target == "/CUSTOM" for s in sender.sent)  # generator request honored
 
 
 async def test_validator_error_keeps_response():
@@ -85,12 +84,11 @@ async def test_validator_error_keeps_response():
     req = Request.from_url("http://h/?a=1")
     module = AttackModule("t", G(), BadValidator(), applies_to=("param",))
     point = InjectionPoint.from_locator(req.locate("param:a"))
-    report = await Runner(sender=FakeSender([reflect])).run(
-        req, module=module, points=[point])
+    report = await Runner(sender=FakeSender([reflect])).run(req, module=module, points=[point])
     assert len(report) == 1
     attempt = report.attempts[0]
     assert attempt.error is not None
-    assert attempt.response is not None    # response preserved despite validator error
+    assert attempt.response is not None  # response preserved despite validator error
     assert attempt.finding is None
 
 
@@ -98,6 +96,7 @@ async def test_capture_baseline_false_skips_baseline():
     registry.register(_xss_module())
     sender = FakeSender([reflect])
     report = await Runner(sender=sender, capture_baseline=False).run(
-        Request.from_url("http://h/?q=hi"), attack="xss")
+        Request.from_url("http://h/?q=hi"), attack="xss"
+    )
     assert report.baseline is None
-    assert len(sender.sent) == len(report.attempts)   # no extra baseline send
+    assert len(sender.sent) == len(report.attempts)  # no extra baseline send

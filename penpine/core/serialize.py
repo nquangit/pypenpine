@@ -1,4 +1,5 @@
 """Serialize a Request back to raw bytes."""
+
 from __future__ import annotations
 
 from penpine.core.message import Request

@@ -15,8 +15,14 @@ VARS = {
 def test_base_files_render_and_compile(tmp_path):
     dst = tmp_path / "proj"
     render_project(dst, VARS)  # real templates
-    for rel in ("main.py", "config.py", "requirements.txt",
-                ".gitignore", "requests/sample.http", "docs/README.md"):
+    for rel in (
+        "main.py",
+        "config.py",
+        "requirements.txt",
+        ".gitignore",
+        "requests/sample.http",
+        "docs/README.md",
+    ):
         assert (dst / rel).exists(), rel
     # editable spec landed in requirements
     assert "-e /tmp/pypenpine" in (dst / "requirements.txt").read_text()

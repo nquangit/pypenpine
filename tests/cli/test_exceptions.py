@@ -1,5 +1,5 @@
-from penpine.exceptions import PenpineError
 from penpine.cli.exceptions import CliError, ScaffoldError, VenvError
+from penpine.exceptions import PenpineError
 
 
 def test_cli_errors_subclass_penpine_error():

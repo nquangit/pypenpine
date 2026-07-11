@@ -1,4 +1,5 @@
 import pytest
+
 from penpine.core.body.json_body import JsonBody
 from penpine.exceptions import BodyParseError
 

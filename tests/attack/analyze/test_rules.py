@@ -1,9 +1,18 @@
-from penpine.attack.models import InjectionPoint
 from penpine.attack.analyze.rules import (
-    ClassificationRule, StringContextRule, NumericValueRule, IdentifierNameRule,
-    UrlValueRule, RedirectNameRule, FileNameOrPathRule, PathSegmentRule,
-    HostHeaderRule, ProxyHeaderRule, SearchNameRule, DEFAULT_RULES,
+    DEFAULT_RULES,
+    ClassificationRule,
+    FileNameOrPathRule,
+    HostHeaderRule,
+    IdentifierNameRule,
+    NumericValueRule,
+    PathSegmentRule,
+    ProxyHeaderRule,
+    RedirectNameRule,
+    SearchNameRule,
+    StringContextRule,
+    UrlValueRule,
 )
+from penpine.attack.models import InjectionPoint
 
 
 def pt(kind, name, value):
@@ -63,6 +72,7 @@ def test_default_rules_is_ordered_list_of_rules():
 
 def test_file_path_rule_ignores_headers():
     from penpine.attack.analyze.rules import FileNameOrPathRule
+
     # media-type value contains '/' but a header must NOT be tagged path-traversal/lfi
     assert FileNameOrPathRule().match(pt("header", "Content-Type", "application/json")) == set()
     assert FileNameOrPathRule().match(pt("header", "Referer", "http://x/y")) == set()
@@ -70,6 +80,7 @@ def test_file_path_rule_ignores_headers():
 
 def test_file_path_rule_still_tags_body_kinds():
     from penpine.attack.analyze.rules import FileNameOrPathRule
+
     assert FileNameOrPathRule().match(pt("param", "x", "../e")) == {"path-traversal", "lfi"}
     assert FileNameOrPathRule().match(pt("json", "doc", "anything")) == {"path-traversal", "lfi"}
     assert FileNameOrPathRule().match(pt("form", "x", "a/b")) == {"path-traversal", "lfi"}

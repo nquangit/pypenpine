@@ -1,11 +1,11 @@
 import asyncio
 
-from penpine.auth.scheduler import RefreshScheduler
+from penpine.auth.exceptions import LoginError
 from penpine.auth.manager import SessionManager
 from penpine.auth.provider import AuthProvider
+from penpine.auth.scheduler import RefreshScheduler
 from penpine.auth.scheme import BearerAuth
 from penpine.auth.session import Session
-from penpine.auth.exceptions import LoginError
 from tests.auth._fakes import FakeEngine
 
 
@@ -78,13 +78,13 @@ async def test_scheduler_survives_transport_error():
     await asyncio.sleep(0.09)
     running = not sched._task.done()
     await sched.stop()
-    assert running                       # a TransportError tick did not kill the loop
+    assert running  # a TransportError tick did not kill the loop
     assert provider.logins >= 3
 
 
 async def test_scheduler_idles_without_trigger():
     provider = CountingProvider()
-    sched = RefreshScheduler(manager(provider))   # every=None, no session/expiry
+    sched = RefreshScheduler(manager(provider))  # every=None, no session/expiry
     # deterministic: with nothing to schedule, a tick must NOT request a refresh
     _, should_refresh = sched._next_tick()
     assert should_refresh is False
@@ -92,4 +92,4 @@ async def test_scheduler_idles_without_trigger():
     await sched.start()
     await asyncio.sleep(0.1)
     await sched.stop()
-    assert provider.logins == 0          # nothing to schedule -> no proactive login
+    assert provider.logins == 0  # nothing to schedule -> no proactive login

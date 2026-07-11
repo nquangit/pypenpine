@@ -1,4 +1,5 @@
 """Connection metadata populated by loaders/builder, consumed by L1."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

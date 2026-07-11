@@ -1,4 +1,5 @@
 """Extractors: pull values out of a Response."""
+
 from __future__ import annotations
 
 import re
@@ -30,8 +31,7 @@ def _raw_extract(response, spec: Extract):
         try:
             json_view = response.body.json
         except BodyParseError as exc:
-            raise ExtractError(
-                f"response body is not JSON (key {spec.key!r}): {exc}") from exc
+            raise ExtractError(f"response body is not JSON (key {spec.key!r}): {exc}") from exc
         try:
             return json_view.get(spec.json)
         except BodyParseError:

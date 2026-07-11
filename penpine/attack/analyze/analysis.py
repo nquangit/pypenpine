@@ -1,4 +1,5 @@
 """Analysis: the tagged-injection-point result of analyze()."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

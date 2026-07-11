@@ -1,7 +1,9 @@
 """Async byte-stream abstraction over asyncio, plus a socket-free fake."""
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 from penpine.transport.exceptions import ConnectError, IncompleteResponseError
 from penpine.transport.timeouts import Timeouts
@@ -50,26 +52,25 @@ class FakeByteStream(ByteStream):
         self._buf.extend(data)
 
     async def read(self, n: int) -> bytes:
-        chunk = bytes(self._buf[self._pos:self._pos + n])
+        chunk = bytes(self._buf[self._pos : self._pos + n])
         self._pos += len(chunk)
         return chunk
 
     async def readexactly(self, n: int) -> bytes:
         end = self._pos + n
         if end > len(self._buf):
-            raise IncompleteResponseError(
-                f"expected {n} bytes, got {len(self._buf) - self._pos}")
-        chunk = bytes(self._buf[self._pos:end])
+            raise IncompleteResponseError(f"expected {n} bytes, got {len(self._buf) - self._pos}")
+        chunk = bytes(self._buf[self._pos : end])
         self._pos = end
         return chunk
 
     async def readline(self) -> bytes:
         idx = self._buf.find(b"\n", self._pos)
         if idx == -1:
-            chunk = bytes(self._buf[self._pos:])
+            chunk = bytes(self._buf[self._pos :])
             self._pos = len(self._buf)
             return chunk
-        chunk = bytes(self._buf[self._pos:idx + 1])
+        chunk = bytes(self._buf[self._pos : idx + 1])
         self._pos = idx + 1
         return chunk
 
@@ -105,8 +106,7 @@ class AsyncioByteStream(ByteStream):
         try:
             return await self._reader.readexactly(n)
         except asyncio.IncompleteReadError as exc:
-            raise IncompleteResponseError(
-                f"expected {n} bytes, got {len(exc.partial)}") from exc
+            raise IncompleteResponseError(f"expected {n} bytes, got {len(exc.partial)}") from exc
 
     async def readline(self) -> bytes:
         return await self._reader.readline()
@@ -123,17 +123,17 @@ class AsyncioByteStream(ByteStream):
     async def close(self) -> None:
         self._closed = True
         self._writer.close()
-        try:
+        with contextlib.suppress(Exception):
             await self._writer.wait_closed()
-        except Exception:
-            pass
 
     @property
     def closed(self) -> bool:
         return self._closed
 
 
-async def open_asyncio_stream(host: str, port: int, timeouts: Timeouts | None = None) -> AsyncioByteStream:
+async def open_asyncio_stream(
+    host: str, port: int, timeouts: Timeouts | None = None
+) -> AsyncioByteStream:
     """Default stream opener: connect a TCP socket and wrap it."""
     timeouts = timeouts or Timeouts()
     try:
@@ -142,6 +142,6 @@ async def open_asyncio_stream(host: str, port: int, timeouts: Timeouts | None = 
             reader, writer = await asyncio.wait_for(coro, timeouts.connect)
         else:
             reader, writer = await coro
-    except (OSError, asyncio.TimeoutError) as exc:
+    except (TimeoutError, OSError) as exc:
         raise ConnectError(f"failed to connect to {host}:{port}: {exc}") from exc
     return AsyncioByteStream(reader, writer)

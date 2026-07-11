@@ -1,4 +1,5 @@
 import ssl
+
 from penpine.transport.tls import TLSConfig
 
 
@@ -15,8 +16,7 @@ def test_verify_true_keeps_hostname_checking():
 
 
 def test_versions_and_ciphers_applied():
-    cfg = TLSConfig(min_version=ssl.TLSVersion.TLSv1_2,
-                    max_version=ssl.TLSVersion.TLSv1_2)
+    cfg = TLSConfig(min_version=ssl.TLSVersion.TLSv1_2, max_version=ssl.TLSVersion.TLSv1_2)
     ctx = cfg.build_ssl_context()
     assert ctx.minimum_version == ssl.TLSVersion.TLSv1_2
     assert ctx.maximum_version == ssl.TLSVersion.TLSv1_2

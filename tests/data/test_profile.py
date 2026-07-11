@@ -1,7 +1,7 @@
 import pytest
 
-from penpine.data.profile import DataProfile
 from penpine.data.exceptions import DataError
+from penpine.data.profile import DataProfile
 
 
 def test_get_with_default():

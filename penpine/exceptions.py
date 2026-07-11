@@ -1,4 +1,5 @@
 """Exception hierarchy for penpine."""
+
 from __future__ import annotations
 
 

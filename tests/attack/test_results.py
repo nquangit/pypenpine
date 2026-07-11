@@ -1,10 +1,11 @@
+from penpine.attack.models import Confidence, Finding, InjectionPoint, Payload, TestCase
 from penpine.attack.results import Attempt, Report
-from penpine.attack.models import InjectionPoint, Payload, TestCase, Finding, Confidence
 
 
 def _tc():
-    return TestCase(point=InjectionPoint("param:a", "param", "a", "1"),
-                    payload=Payload("x"), attack_type="t")
+    return TestCase(
+        point=InjectionPoint("param:a", "param", "a", "1"), payload=Payload("x"), attack_type="t"
+    )
 
 
 def test_attempt_ok_and_found():

@@ -1,4 +1,5 @@
 """Proxy support: HTTP CONNECT and SOCKS5, hand-rolled over a ByteStream."""
+
 from __future__ import annotations
 
 import base64
@@ -17,7 +18,7 @@ class ProxyConfig:
     password: str | None = None
 
     @classmethod
-    def from_url(cls, url: str) -> "ProxyConfig":
+    def from_url(cls, url: str) -> ProxyConfig:
         scheme, _, rest = url.partition("://")
         scheme = scheme.lower()
         creds = None
@@ -30,18 +31,23 @@ class ProxyConfig:
         username = password = None
         if creds:
             username, _, password = creds.partition(":")
-        return cls(scheme=scheme, host=host, port=port,
-                   username=username or None, password=password or None)
+        return cls(
+            scheme=scheme,
+            host=host,
+            port=port,
+            username=username or None,
+            password=password or None,
+        )
 
     async def establish(self, open_stream, target_host: str, target_port: int):
         stream = await open_stream(self.host, self.port)
         try:
             if self.scheme == "socks5":
-                await _socks5_connect(stream, target_host, target_port,
-                                      self.username, self.password)
+                await _socks5_connect(
+                    stream, target_host, target_port, self.username, self.password
+                )
             else:
-                await _http_connect(stream, target_host, target_port,
-                                    self.username, self.password)
+                await _http_connect(stream, target_host, target_port, self.username, self.password)
         except BaseException:
             await stream.close()
             raise
@@ -88,8 +94,7 @@ async def _socks5_connect(stream, host, port, username, password) -> None:
     elif method != 0x00:
         raise ProxyError(f"SOCKS5: no acceptable auth method ({method:#x})")
     host_b = host.encode()
-    stream.write(b"\x05\x01\x00\x03" + bytes([len(host_b)]) + host_b
-                 + struct.pack("!H", port))
+    stream.write(b"\x05\x01\x00\x03" + bytes([len(host_b)]) + host_b + struct.pack("!H", port))
     await stream.drain()
     reply = await stream.readexactly(4)
     if reply[1] != 0x00:

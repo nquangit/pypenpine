@@ -1,8 +1,11 @@
-from penpine.core.parse.http_parser import parse_response
 from penpine.attack.models import InjectionPoint
 from penpine.attack.modules.xss import (
-    XssGenerator, XssValidator, XSS_PAYLOAD_TEMPLATES, XSS_MODULE,
+    XSS_MODULE,
+    XSS_PAYLOAD_TEMPLATES,
+    XssGenerator,
+    XssValidator,
 )
+from penpine.core.parse.http_parser import parse_response
 
 
 def pt():

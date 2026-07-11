@@ -1,7 +1,7 @@
 import pytest
 
 from penpine.attack import registry
-from penpine.attack.modules import register_builtins, BUILTIN_MODULES
+from penpine.attack.modules import BUILTIN_MODULES, register_builtins
 
 
 @pytest.fixture(autouse=True)
@@ -29,12 +29,15 @@ def test_import_has_no_side_effects():
         "from penpine.attack import registry\n"
         "print(registry.list_modules())\n"
     )
-    result = subprocess.run([sys.executable, "-c", code],
-                            capture_output=True, text=True, check=True)
-    assert result.stdout.strip() == "[]"   # fresh import registers nothing
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "[]"  # fresh import registers nothing
 
 
 def test_attack_package_reexports():
-    from penpine.attack import register_builtins as rb, BUILTIN_MODULES as bm
+    from penpine.attack import BUILTIN_MODULES as bm
+    from penpine.attack import register_builtins as rb
+
     assert rb is register_builtins
     assert bm is BUILTIN_MODULES

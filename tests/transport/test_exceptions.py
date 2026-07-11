@@ -1,7 +1,11 @@
 from penpine.exceptions import PenpineError
 from penpine.transport.exceptions import (
-    TransportError, ConnectError, TLSError, ProxyError,
-    ReadTimeout, IncompleteResponseError,
+    ConnectError,
+    IncompleteResponseError,
+    ProxyError,
+    ReadTimeout,
+    TLSError,
+    TransportError,
 )
 from penpine.transport.timeouts import Timeouts
 

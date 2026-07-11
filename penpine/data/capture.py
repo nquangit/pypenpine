@@ -1,4 +1,5 @@
 """Capture: write extracted response values into a Context."""
+
 from __future__ import annotations
 
 from penpine.data.extract import extract_value, run_extractors

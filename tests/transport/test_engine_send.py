@@ -1,9 +1,10 @@
 import pytest
+
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 from penpine.transport.engine import Engine
-from penpine.transport.interceptor import Interceptor, RetrySignal
 from penpine.transport.exceptions import TransportError
+from penpine.transport.interceptor import Interceptor, RetrySignal
 
 
 class StubConn:
@@ -79,8 +80,7 @@ async def test_retry_signal_retries_until_max():
             return response
 
     req = Request.from_url("http://h:8080/")
-    engine = Engine(interceptors=[RetryOnce()], max_retries=1,
-                    connection_factory=StubConn)
+    engine = Engine(interceptors=[RetryOnce()], max_retries=1, connection_factory=StubConn)
     resp = await engine.send(req)
     assert resp.status_code == 200
     assert len(StubConn.instances) == 2
@@ -117,7 +117,8 @@ async def test_http_proxy_plain_http_rewrites_to_absolute_form():
     from penpine.transport.proxy import ProxyConfig
 
     req = Request.from_url("http://h:8080/path?q=1")
-    engine = Engine(proxy=ProxyConfig.from_url("http://127.0.0.1:3128"),
-                    connection_factory=StubConn)
+    engine = Engine(
+        proxy=ProxyConfig.from_url("http://127.0.0.1:3128"), connection_factory=StubConn
+    )
     await engine.send(req)
     assert StubConn.instances[0].sent.startswith(b"GET http://h:8080/path?q=1 HTTP/1.1")

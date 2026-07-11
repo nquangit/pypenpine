@@ -1,4 +1,5 @@
 """Construct Request objects from raw bytes, files, or URLs."""
+
 from __future__ import annotations
 
 from penpine.core.body.base import Body
@@ -24,6 +25,7 @@ def from_file(path, *, strict=False, scheme=None, host=None, port=None):
 
 def from_url(url, *, method="GET", headers=None, body=None, version="HTTP/1.1"):
     from penpine.core.message import Request
+
     u = parse_url(url)
     host_header = u.host if u.port in (80, 443) else f"{u.host}:{u.port}"
     items = [("Host", host_header)]
@@ -31,7 +33,10 @@ def from_url(url, *, method="GET", headers=None, body=None, version="HTTP/1.1"):
         items += list(headers)
     target = u.path + (f"?{u.query}" if u.query else "")
     return Request(
-        method=method, target=target, version=version,
-        headers=Headers(items), body=Body(body or b""),
+        method=method,
+        target=target,
+        version=version,
+        headers=Headers(items),
+        body=Body(body or b""),
         meta=ConnectionMeta(scheme=u.scheme, host=u.host, port=u.port),
     )

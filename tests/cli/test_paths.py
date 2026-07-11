@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from penpine.cli.paths import slugify, find_penpine_root, penpine_spec
+from penpine.cli.paths import find_penpine_root, penpine_spec, slugify
 
 
 def test_slugify_normalizes_names():

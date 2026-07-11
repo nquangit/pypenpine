@@ -1,13 +1,12 @@
 import pytest
 
 from penpine.core.parse.http_parser import parse_response
-from penpine.data.extract import Extract, extract_value, run_extractors
 from penpine.data.exceptions import ExtractError
+from penpine.data.extract import Extract, extract_value, run_extractors
 
 
 def json_resp():
-    return parse_response(
-        b'HTTP/1.1 200 OK\r\nContent-Length: 22\r\n\r\n{"user":{"id":"U7"}}\r\n')
+    return parse_response(b'HTTP/1.1 200 OK\r\nContent-Length: 22\r\n\r\n{"user":{"id":"U7"}}\r\n')
 
 
 def test_extract_json():
@@ -21,7 +20,8 @@ def test_extract_header():
 
 def test_extract_cookie():
     resp = parse_response(
-        b"HTTP/1.1 200 OK\r\nSet-Cookie: sid=abc; Path=/\r\nContent-Length: 0\r\n\r\n")
+        b"HTTP/1.1 200 OK\r\nSet-Cookie: sid=abc; Path=/\r\nContent-Length: 0\r\n\r\n"
+    )
     assert extract_value(resp, Extract("s", cookie="sid")) == "abc"
 
 
@@ -50,7 +50,8 @@ def test_no_source_raises():
 
 def test_run_extractors_returns_dict():
     resp = parse_response(
-        b'HTTP/1.1 200 OK\r\nX-Token: tk\r\nContent-Length: 22\r\n\r\n{"user":{"id":"U7"}}\r\n')
+        b'HTTP/1.1 200 OK\r\nX-Token: tk\r\nContent-Length: 22\r\n\r\n{"user":{"id":"U7"}}\r\n'
+    )
     out = run_extractors(resp, [Extract("id", json="$.user.id"), Extract("t", header="X-Token")])
     assert out == {"id": "U7", "t": "tk"}
 
@@ -65,12 +66,12 @@ def test_json_path_miss_respects_required_and_default():
     resp = parse_response(b'HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\n{"a":1}\r\n')
     with pytest.raises(ExtractError):
         extract_value(resp, Extract("x", json="$.missing"))
-    assert extract_value(resp, Extract("x", json="$.missing",
-                                        required=False, default="d")) == "d"
+    assert extract_value(resp, Extract("x", json="$.missing", required=False, default="d")) == "d"
 
 
 def test_extract_cookie_among_multiple_set_cookie():
     resp = parse_response(
         b"HTTP/1.1 200 OK\r\nSet-Cookie: a=1\r\n"
-        b"Set-Cookie: sid=abc; Path=/\r\nContent-Length: 0\r\n\r\n")
+        b"Set-Cookie: sid=abc; Path=/\r\nContent-Length: 0\r\n\r\n"
+    )
     assert extract_value(resp, Extract("s", cookie="sid")) == "abc"

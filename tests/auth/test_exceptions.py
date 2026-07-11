@@ -1,5 +1,5 @@
+from penpine.auth.exceptions import AuthConfigError, AuthError, LoginError, RefreshError
 from penpine.exceptions import PenpineError
-from penpine.auth.exceptions import AuthError, LoginError, RefreshError, AuthConfigError
 
 
 def test_hierarchy():

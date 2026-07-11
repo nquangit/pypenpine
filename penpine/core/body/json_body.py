@@ -1,4 +1,5 @@
 """JSON body view with JSONPath get/set (jsonpath-ng isolated here)."""
+
 from __future__ import annotations
 
 import copy
@@ -14,7 +15,7 @@ class JsonBody:
         self._data = data
 
     @classmethod
-    def from_bytes(cls, raw: bytes) -> "JsonBody":
+    def from_bytes(cls, raw: bytes) -> JsonBody:
         try:
             return cls(json.loads(raw.decode("utf-8")))
         except (ValueError, UnicodeDecodeError) as exc:
@@ -30,7 +31,7 @@ class JsonBody:
             raise BodyParseError(f"JSON path not found: {path}")
         return matches[0].value
 
-    def set(self, path: str, value) -> "JsonBody":
+    def set(self, path: str, value) -> JsonBody:
         new_data = copy.deepcopy(self._data)
         expr = jsonpath_parse(path)
         if not expr.find(new_data):

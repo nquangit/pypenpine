@@ -1,6 +1,10 @@
 import penpine.attack as attack
 from penpine.attack.analyze import (
-    analyze, Analysis, ClassificationRule, DEFAULT_RULES, detectors,
+    DEFAULT_RULES,
+    Analysis,
+    ClassificationRule,
+    analyze,
+    detectors,
 )
 
 
