@@ -13,6 +13,7 @@ from penpine.transport.exceptions import (
     TransportTimeout,
 )
 from penpine.transport.interceptor import Interceptor, RetrySignal
+from penpine.transport.pool import PoolConfig
 from penpine.transport.proxy import ProxyConfig
 from penpine.transport.timeouts import Timeouts
 from penpine.transport.tls import TLSConfig
@@ -33,4 +34,5 @@ __all__ = [
     "TransportTimeout",
     "TotalTimeout",
     "IncompleteResponseError",
+    "PoolConfig",
 ]
