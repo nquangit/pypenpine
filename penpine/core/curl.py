@@ -156,6 +156,9 @@ def parse_curl(command: str) -> Request:
     is_get = False
     is_json = False
     user: str | None = None
+    user_agent: str | None = None
+    referer: str | None = None
+    cookie: str | None = None
 
     i = 0
     while i < len(tokens):
@@ -184,14 +187,11 @@ def parse_curl(command: str) -> Request:
             value, i = _next_value(tokens, i, inline, key)
             header_items.append(_split_header(value))
         elif key in ("-A", "--user-agent"):
-            value, i = _next_value(tokens, i, inline, key)
-            header_items.append(("User-Agent", value))
+            user_agent, i = _next_value(tokens, i, inline, key)
         elif key in ("-e", "--referer"):
-            value, i = _next_value(tokens, i, inline, key)
-            header_items.append(("Referer", value))
+            referer, i = _next_value(tokens, i, inline, key)
         elif key in ("-b", "--cookie"):
-            value, i = _next_value(tokens, i, inline, key)
-            header_items.append(("Cookie", value))
+            cookie, i = _next_value(tokens, i, inline, key)
         elif key in ("-u", "--user"):
             user, i = _next_value(tokens, i, inline, key)
         elif key == "--url":
@@ -226,7 +226,10 @@ def parse_curl(command: str) -> Request:
     if url is None:
         raise BuildError("no URL found in curl command")
 
-    parsed = parse_url(url)
+    try:
+        parsed = parse_url(url)
+    except ValueError as exc:
+        raise BuildError(f"invalid URL in curl command: {url!r}: {exc}") from exc
     data_str = _assemble_data(data_entries)
 
     if method is None:
@@ -245,6 +248,10 @@ def parse_curl(command: str) -> Request:
 
     def _has(name: str) -> bool:
         return any(existing.lower() == name.lower() for existing, _ in items)
+
+    for _name, _val in (("User-Agent", user_agent), ("Referer", referer), ("Cookie", cookie)):
+        if _val is not None and not _has(_name):
+            items.append((_name, _val))
 
     if user is not None:
         if ":" not in user:

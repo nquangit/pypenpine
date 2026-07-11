@@ -95,3 +95,19 @@ def test_form_flag_raises():
 def test_no_url_raises():
     with pytest.raises(BuildError):
         parse_curl("curl -X POST")
+
+
+def test_dash_H_wins_over_dash_A():
+    req = parse_curl("curl 'http://h/' -A ua1 -H 'User-Agent: ua2'")
+    assert req.headers.get_all("User-Agent") == ["ua2"]
+    assert req.headers.get("User-Agent") == "ua2"
+
+
+def test_dash_A_alone_still_applies():
+    req = parse_curl("curl 'http://h/' -A ua1")
+    assert req.headers.get("User-Agent") == "ua1"
+
+
+def test_malformed_url_raises_build_error():
+    with pytest.raises(BuildError):
+        parse_curl("curl 'http://h:notaport/x'")
