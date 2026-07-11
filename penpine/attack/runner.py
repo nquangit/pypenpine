@@ -64,7 +64,7 @@ class Runner:
         module = self._resolve_module(attack, module)
         attack_type = attack if attack is not None else (module.name if module else None)
         if module is not None and hasattr(module, "probe"):
-            selection_tag = attack or getattr(module, "select_attack_type", None) or module.name
+            selection_tag = getattr(module, "select_attack_type", None) or attack or module.name
             selected = self._select_points(request, module, selection_tag, points)
             baseline = None
             if self._capture_baseline:
