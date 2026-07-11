@@ -6,7 +6,7 @@ import asyncio
 import threading
 
 from penpine.transport.connection import Connection
-from penpine.transport.exceptions import TransportError
+from penpine.transport.exceptions import TotalTimeout, TransportError
 from penpine.transport.interceptor import RetrySignal
 from penpine.transport.timeouts import Timeouts
 from penpine.transport.tls import TLSConfig
@@ -35,6 +35,16 @@ class Engine:
         self._loop_thread = None
 
     async def send(self, request):
+        if self.timeouts.total:
+            try:
+                return await asyncio.wait_for(self._send(request), self.timeouts.total)
+            except TimeoutError as exc:
+                raise TotalTimeout(
+                    f"send exceeded total timeout of {self.timeouts.total}s"
+                ) from exc
+        return await self._send(request)
+
+    async def _send(self, request):
         meta = request.meta
         if not meta.host or not meta.port:
             raise TransportError(
