@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+
+from penpine.transport.exceptions import ReadTimeout
 from penpine.transport.reader import ResponseReader
 from penpine.transport.stream import open_asyncio_stream
 from penpine.transport.timeouts import Timeouts
@@ -44,7 +47,13 @@ class Connection:
         await self._stream.drain()
 
     async def read_response(self, method: str = "GET"):
-        return await ResponseReader.read(self._stream, request_method=method)
+        coro = ResponseReader.read(self._stream, request_method=method)
+        if self.timeouts.read:
+            try:
+                return await asyncio.wait_for(coro, self.timeouts.read)
+            except TimeoutError as exc:
+                raise ReadTimeout(f"read timed out after {self.timeouts.read}s") from exc
+        return await coro
 
     async def close(self) -> None:
         if self._stream is not None and not self._stream.closed:
