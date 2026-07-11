@@ -295,11 +295,24 @@ test case never aborts the run.
 ## Testing
 
 ```bash
-pytest                # 298 tests, no network required
+pytest                # 327 tests (1 opt-in slow), no network required
 ```
 
 The whole suite runs against synthetic requests/responses and fake senders — no
 sockets, no live targets.
+
+## Development
+
+Install the dev toolchain and the pre-commit hooks:
+
+    pip install -e ".[dev]"
+    pre-commit install
+
+Run the same checks CI runs:
+
+    ruff check . && ruff format --check .   # lint + format (gating)
+    mypy penpine                            # type check (advisory)
+    pytest --cov=penpine                    # tests + coverage
 
 ## Status & roadmap
 
