@@ -16,29 +16,6 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-# Flags we model that consume an argument.
-_VALUE_FLAGS = {
-    "-X",
-    "--request",
-    "-H",
-    "--header",
-    "-d",
-    "--data",
-    "--data-ascii",
-    "--data-raw",
-    "--data-binary",
-    "--data-urlencode",
-    "--json",
-    "-b",
-    "--cookie",
-    "-A",
-    "--user-agent",
-    "-e",
-    "--referer",
-    "-u",
-    "--user",
-    "--url",
-}
 # Flags we accept but ignore, which still consume their argument.
 _IGNORED_VALUE_FLAGS = {
     "-x",
@@ -62,31 +39,6 @@ _IGNORED_VALUE_FLAGS = {
     "-T",
     "--upload-file",
     "--proxy-user",
-}
-# Boolean flags we model.
-_BOOL_FLAGS = {"-G", "--get", "--compressed"}
-# Boolean flags we accept but ignore.
-_IGNORED_BOOL_FLAGS = {
-    "-k",
-    "--insecure",
-    "-L",
-    "--location",
-    "-s",
-    "--silent",
-    "-S",
-    "--show-error",
-    "-v",
-    "--verbose",
-    "-i",
-    "--include",
-    "-f",
-    "--fail",
-    "-#",
-    "--progress-bar",
-    "--http1.1",
-    "--http2",
-    "-N",
-    "--no-buffer",
 }
 _FORM_FLAGS = {"-F", "--form", "--form-string"}
 
