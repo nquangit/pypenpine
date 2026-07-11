@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import base64
 import re
 import shlex
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from penpine.exceptions import BuildError
 from penpine.logging import get_logger
+
+if TYPE_CHECKING:
+    from penpine.core.message import Request
 
 log = get_logger(__name__)
 
@@ -181,3 +186,138 @@ def _next_value(tokens: list[str], i: int, inline: str | None, key: str) -> tupl
     if i + 1 >= len(tokens):
         raise BuildError(f"curl flag {key} expects a value")
     return tokens[i + 1], i + 1
+
+
+def parse_curl(command: str) -> Request:
+    from penpine.core.body.base import Body
+    from penpine.core.headers import Headers
+    from penpine.core.message import Request
+    from penpine.core.meta import ConnectionMeta
+    from penpine.core.url import parse_url
+
+    tokens = _tokenize(command)
+
+    url: str | None = None
+    method: str | None = None
+    header_items: list[tuple[str, str]] = []
+    data_entries: list[tuple[str, str]] = []
+    is_get = False
+    is_json = False
+    user: str | None = None
+
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if not tok.startswith("-"):
+            if url is None:
+                url = tok
+            else:
+                log.debug("ignoring extra positional argument: %r", tok)
+            i += 1
+            continue
+
+        if tok.startswith("--") and "=" in tok:
+            key, _, inline = tok.partition("=")
+        else:
+            key, inline = tok, None
+
+        if key in _FORM_FLAGS:
+            raise BuildError(
+                "multipart -F/--form is not supported by from_curl; "
+                "use RequestBuilder for multipart bodies"
+            )
+        elif key in ("-X", "--request"):
+            method, i = _next_value(tokens, i, inline, key)
+        elif key in ("-H", "--header"):
+            value, i = _next_value(tokens, i, inline, key)
+            header_items.append(_split_header(value))
+        elif key in ("-A", "--user-agent"):
+            value, i = _next_value(tokens, i, inline, key)
+            header_items.append(("User-Agent", value))
+        elif key in ("-e", "--referer"):
+            value, i = _next_value(tokens, i, inline, key)
+            header_items.append(("Referer", value))
+        elif key in ("-b", "--cookie"):
+            value, i = _next_value(tokens, i, inline, key)
+            header_items.append(("Cookie", value))
+        elif key in ("-u", "--user"):
+            user, i = _next_value(tokens, i, inline, key)
+        elif key == "--url":
+            url, i = _next_value(tokens, i, inline, key)
+        elif key in ("-d", "--data", "--data-ascii"):
+            value, i = _next_value(tokens, i, inline, key)
+            data_entries.append(("data", value))
+        elif key == "--data-raw":
+            value, i = _next_value(tokens, i, inline, key)
+            data_entries.append(("raw", value))
+        elif key == "--data-binary":
+            value, i = _next_value(tokens, i, inline, key)
+            data_entries.append(("binary", value))
+        elif key == "--data-urlencode":
+            value, i = _next_value(tokens, i, inline, key)
+            data_entries.append(("urlencode", value))
+        elif key == "--json":
+            value, i = _next_value(tokens, i, inline, key)
+            data_entries.append(("raw", value))
+            is_json = True
+        elif key in ("-G", "--get"):
+            is_get = True
+        elif key == "--compressed":
+            pass
+        elif key in _IGNORED_VALUE_FLAGS:
+            _, i = _next_value(tokens, i, inline, key)
+            log.debug("ignoring curl flag with value: %s", key)
+        else:
+            log.debug("ignoring curl flag: %s", key)
+        i += 1
+
+    if url is None:
+        raise BuildError("no URL found in curl command")
+
+    parsed = parse_url(url)
+    data_str = _assemble_data(data_entries)
+
+    if method is None:
+        method = "GET" if (is_get or not data_entries) else "POST"
+    method = method.upper()
+
+    query = parsed.query
+    body = data_str.encode("utf-8")
+    if is_get and data_entries:
+        query = f"{query}&{data_str}" if query else data_str
+        body = b""
+
+    target = parsed.path + (f"?{query}" if query else "")
+    host_header = parsed.host if parsed.port in (80, 443) else f"{parsed.host}:{parsed.port}"
+    items: list[tuple[str, str]] = [("Host", host_header), *header_items]
+
+    def _has(name: str) -> bool:
+        return any(existing.lower() == name.lower() for existing, _ in items)
+
+    if user is not None:
+        if ":" not in user:
+            user = user + ":"
+        token = base64.b64encode(user.encode("utf-8")).decode("ascii")
+        if not _has("Authorization"):
+            items.append(("Authorization", f"Basic {token}"))
+
+    if body and not _has("Content-Type"):
+        items.append(
+            (
+                "Content-Type",
+                "application/json" if is_json else "application/x-www-form-urlencoded",
+            )
+        )
+    if is_json and not _has("Accept"):
+        items.append(("Accept", "application/json"))
+    if body and not _has("Content-Length"):
+        items.append(("Content-Length", str(len(body))))
+
+    return Request(
+        method=method,
+        target=target,
+        version="HTTP/1.1",
+        headers=Headers(items),
+        body=Body(body),
+        meta=ConnectionMeta(scheme=parsed.scheme, host=parsed.host, port=parsed.port),
+    )
