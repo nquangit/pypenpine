@@ -70,7 +70,7 @@ class DifferentialModule:
 
 ### 4.2 Runner branch (`runner.py`)
 In `run()`, after `module = self._resolve_module(attack, module)` and `attack_type = attack or module.name`, detect a differential module by duck-typing `hasattr(module, "probe")`. If so, take the differential path (the signature `generate`/`validate`/`test_cases` path is untouched otherwise):
-- **Select points:** `selection_tag = attack or getattr(module, "select_attack_type", None) or module.name`; `self._select_points(request, module, selection_tag, points)`.
+- **Select points:** `selection_tag = getattr(module, "select_attack_type", None) or attack or module.name`; `self._select_points(request, module, selection_tag, points)`. (`select_attack_type` MUST take priority over `attack` — the module is named `sqli-boolean` but the analyzer tags points `sqli`, so `run(attack="sqli-boolean")` must still select `sqli`-tagged points.)
 - **Baseline:** capture as today (swallowed to `None` on error) when `capture_baseline`.
 - **Probe per point** under the existing `asyncio.Semaphore`: `await self._probe_attempt(request, point, module, baseline, active_sender)`.
 - Return `Report(request, attack_type, baseline, attempts)` — `attack_type` remains the module name for reporting.

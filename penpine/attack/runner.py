@@ -59,6 +59,11 @@ class Runner:
         override selection entirely (this BYPASSES the `applies` filter — it runs
         the generator on exactly the points you give). `sender` overrides the
         instance's sender for this call.
+
+        A differential module (one exposing `probe`) takes an active-prober path:
+        each selected point is probed once (points chosen via the module's
+        `select_attack_type` tag), and `test_cases`/`validator` are ignored since
+        the module drives its own sends.
         """
         active_sender = sender if sender is not None else self._sender
         module = self._resolve_module(attack, module)
