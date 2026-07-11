@@ -1,5 +1,14 @@
 """Penpine L4d built-in attack modules. No import-time registration."""
 
+from penpine.attack.modules.differential import (
+    BOOLEAN_PAYLOAD_PAIRS,
+    BOOLEAN_SQLI_MODULE,
+    TIME_PAYLOAD_TEMPLATES,
+    TIME_SQLI_MODULE,
+    BooleanSqliModule,
+    DifferentialModule,
+    TimeSqliModule,
+)
 from penpine.attack.modules.redirect import (
     CANARY_HOST,
     REDIRECT_MODULE,
@@ -31,11 +40,12 @@ from penpine.attack.modules.xss import (
 from penpine.attack.registry import register
 
 BUILTIN_MODULES = [SQLI_MODULE, XSS_MODULE, TRAVERSAL_MODULE, REDIRECT_MODULE]
+DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
 
 def register_builtins(*, replace=True) -> None:
     """Register all built-in attack modules into the global registry (idempotent)."""
-    for module in BUILTIN_MODULES:
+    for module in (*BUILTIN_MODULES, *DIFFERENTIAL_MODULES):
         register(module, replace=replace)
 
 
@@ -62,4 +72,12 @@ __all__ = [
     "REDIRECT_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
+    "DifferentialModule",
+    "BooleanSqliModule",
+    "TimeSqliModule",
+    "BOOLEAN_SQLI_MODULE",
+    "TIME_SQLI_MODULE",
+    "DIFFERENTIAL_MODULES",
+    "BOOLEAN_PAYLOAD_PAIRS",
+    "TIME_PAYLOAD_TEMPLATES",
 ]

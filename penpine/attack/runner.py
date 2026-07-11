@@ -9,6 +9,7 @@ import time
 
 from penpine.attack.analyze.analyzer import analyze
 from penpine.attack.exceptions import AttackConfigError
+from penpine.attack.models import Payload, TestCase
 from penpine.attack.registry import get as _registry_get
 from penpine.attack.results import Attempt, Report
 from penpine.transport.engine import Engine
@@ -58,10 +59,37 @@ class Runner:
         override selection entirely (this BYPASSES the `applies` filter — it runs
         the generator on exactly the points you give). `sender` overrides the
         instance's sender for this call.
+
+        A differential module (one exposing `probe`) takes an active-prober path:
+        each selected point is probed once (points chosen via the module's
+        `select_attack_type` tag), and `test_cases`/`validator` are ignored since
+        the module drives its own sends.
         """
         active_sender = sender if sender is not None else self._sender
         module = self._resolve_module(attack, module)
         attack_type = attack if attack is not None else (module.name if module else None)
+        if module is not None and hasattr(module, "probe"):
+            selection_tag = getattr(module, "select_attack_type", None) or attack or module.name
+            selected = self._select_points(request, module, selection_tag, points)
+            baseline = None
+            if self._capture_baseline:
+                try:
+                    baseline = await active_sender.send(request)
+                except Exception:
+                    baseline = None
+            semaphore = asyncio.Semaphore(self._max_concurrency)
+
+            async def _bounded_probe(point):
+                async with semaphore:
+                    return await self._probe_attempt(
+                        request, point, module, baseline, active_sender
+                    )
+
+            attempts = list(await asyncio.gather(*(_bounded_probe(p) for p in selected)))
+            return Report(
+                request=request, attack_type=attack_type, baseline=baseline, attempts=attempts
+            )
+
         if validator is None and module is not None:
             validator = module.validator
 
@@ -134,6 +162,21 @@ class Runner:
             response=response,
             finding=finding,
             elapsed_ms=(time.perf_counter() - start) * 1000,
+        )
+
+    async def _probe_attempt(self, request, point, module, baseline, sender):
+        placeholder = TestCase(
+            point=point, payload=Payload("<differential>"), attack_type=module.name
+        )
+        try:
+            finding = await module.probe(point, request, sender, baseline=baseline)
+        except Exception as exc:
+            return Attempt(test_case=placeholder, error=exc)
+        return Attempt(
+            test_case=placeholder,
+            request=getattr(finding, "request", None),
+            response=getattr(finding, "response", None),
+            finding=finding,
         )
 
     def _ensure_loop(self):
