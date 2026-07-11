@@ -104,22 +104,25 @@ class Engine:
 
     async def _send_pooled(self, key, req):
         conn, reused = await self._pool.acquire(key)
+        released = False
         try:
-            await conn.send_bytes(req.serialize())
-            resp = await conn.read_response(req.method)
-        except (ConnectError, IncompleteResponseError, OSError):
-            await conn.close()
-            if not reused:
-                raise
-            conn, _ = await self._pool.acquire(key, force_new=True)
             try:
                 await conn.send_bytes(req.serialize())
                 resp = await conn.read_response(req.method)
-            except BaseException:
+            except (ConnectError, IncompleteResponseError, OSError):
+                if not reused:
+                    raise
+                # stale keep-alive: the server reaped the idle conn -> retry once fresh
                 await conn.close()
-                raise
-        await self._pool.release(key, conn, _connection_reusable(req, resp))
-        return resp
+                conn, _ = await self._pool.acquire(key, force_new=True)
+                await conn.send_bytes(req.serialize())
+                resp = await conn.read_response(req.method)
+            await self._pool.release(key, conn, _connection_reusable(req, resp))
+            released = True
+            return resp
+        finally:
+            if not released:
+                await conn.close()
 
     async def aclose(self):
         if self._pool is not None:

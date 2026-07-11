@@ -1,5 +1,7 @@
 import time
 
+import pytest
+
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 from penpine.transport.pool import ConnectionPool, PoolConfig, _connection_reusable
@@ -156,3 +158,33 @@ async def test_aclose_closes_all_parked():
     await pool.release(KEY, a, reusable=True)
     await pool.aclose()
     assert a.closed is True
+
+
+async def test_open_failure_closes_connection():
+    from penpine.transport.exceptions import ConnectError
+
+    class _FailOpen:
+        def __init__(self):
+            self._closed = False
+
+        async def open(self):
+            raise ConnectError("handshake failed")
+
+        async def close(self):
+            self._closed = True
+
+        @property
+        def closed(self):
+            return self._closed
+
+    created = []
+
+    def factory(host, port, **kwargs):
+        conn = _FailOpen()
+        created.append(conn)
+        return conn
+
+    pool = ConnectionPool(factory, tls=None, proxy=None, timeouts=None)
+    with pytest.raises(ConnectError):
+        await pool.acquire(("h", 80, False))
+    assert created[0].closed is True

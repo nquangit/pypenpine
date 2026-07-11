@@ -1,3 +1,5 @@
+import pytest
+
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 from penpine.transport.engine import Engine
@@ -106,3 +108,40 @@ def test_sync_close_drains_pool():
     engine.send_sync(Request.from_url("http://h/a"))
     engine.close()
     assert created[0].closed is True
+
+
+async def test_read_timeout_closes_pooled_connection():
+    from penpine.transport.exceptions import ReadTimeout
+
+    class _RTConn:
+        def __init__(self, host, port, **kwargs):
+            self._closed = False
+
+        async def open(self):
+            return self
+
+        async def send_bytes(self, data):
+            return None
+
+        async def read_response(self, method="GET"):
+            raise ReadTimeout("read timed out")
+
+        async def close(self):
+            self._closed = True
+
+        @property
+        def closed(self):
+            return self._closed
+
+    created = []
+
+    def factory(host, port, **kwargs):
+        conn = _RTConn(host, port)
+        created.append(conn)
+        return conn
+
+    engine = Engine(connection_factory=factory, reuse_connections=True)
+    with pytest.raises(ReadTimeout):
+        await engine.send(Request.from_url("http://h/a"))
+    assert created[0].closed is True  # connection not leaked
+    await engine.aclose()

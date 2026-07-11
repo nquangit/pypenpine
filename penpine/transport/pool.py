@@ -43,7 +43,11 @@ class ConnectionPool:
         conn = self._factory(
             host, port, use_tls=use_tls, tls=self._tls, proxy=self._proxy, timeouts=self._timeouts
         )
-        await conn.open()
+        try:
+            await conn.open()
+        except BaseException:
+            await conn.close()
+            raise
         return conn
 
     async def acquire(self, key, *, force_new=False):
