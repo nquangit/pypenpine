@@ -2,19 +2,33 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from penpine.attack.exceptions import AttackConfigError
-from penpine.attack.module import AttackModule
-
-_REGISTRY: dict[str, AttackModule] = {}
+from penpine.attack.types import AttackType
 
 
-def register(module: AttackModule, *, replace: bool = False) -> None:
+class RegistrableModule(Protocol):
+    """The common surface the registry needs: a name and a category.
+
+    Both the signature `AttackModule` and the active-prober `DifferentialModule`
+    satisfy this structurally, so either can be registered.
+    """
+
+    name: str
+    attack_type: AttackType | None
+
+
+_REGISTRY: dict[str, RegistrableModule] = {}
+
+
+def register(module: RegistrableModule, *, replace: bool = False) -> None:
     if module.name in _REGISTRY and not replace:
         raise AttackConfigError(f"attack module already registered: {module.name!r}")
     _REGISTRY[module.name] = module
 
 
-def get(name: str) -> AttackModule:
+def get(name: str) -> RegistrableModule:
     try:
         return _REGISTRY[name]
     except KeyError:

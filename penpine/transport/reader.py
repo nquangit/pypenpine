@@ -131,6 +131,7 @@ class ResponseReader:
         else:
             kind, length = body_length(headers)
             if kind == "length":
+                assert length is not None  # body_length returns an int for the "length" kind
                 body = await _read_n(stream, length, remainder)
             elif kind == "chunked":
                 body = await _read_chunked(stream, remainder)

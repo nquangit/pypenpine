@@ -37,7 +37,7 @@ from penpine.attack.modules.xss import (
     XssGenerator,
     XssValidator,
 )
-from penpine.attack.registry import register
+from penpine.attack.registry import RegistrableModule, register
 
 BUILTIN_MODULES = [SQLI_MODULE, XSS_MODULE, TRAVERSAL_MODULE, REDIRECT_MODULE]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
@@ -45,7 +45,8 @@ DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
 def register_builtins(*, replace=True) -> None:
     """Register all built-in attack modules into the global registry (idempotent)."""
-    for module in (*BUILTIN_MODULES, *DIFFERENTIAL_MODULES):
+    modules: list[RegistrableModule] = [*BUILTIN_MODULES, *DIFFERENTIAL_MODULES]
+    for module in modules:
         register(module, replace=replace)
 
 
