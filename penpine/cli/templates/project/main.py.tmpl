@@ -9,7 +9,7 @@ prints findings. Configure the target in config.py before running.
 """
 import sys
 
-from penpine import Engine, Runner
+from penpine import AttackType, Engine, Runner
 from penpine.attack.modules import register_builtins
 from penpine.core.message import Request
 from penpine.transport.proxy import ProxyConfig
@@ -45,7 +45,7 @@ def main(argv=None):
     runner = build_runner()
     try:
         for attack in attacks:
-            report = runner.run_sync(request, attack=attack)
+            report = runner.run_sync(request, attack=AttackType.from_str(attack))
             print(f"\n== {attack} ==  {report.summary()}")
             for finding in report.findings:
                 print(f"  [{finding.confidence.name}] {finding.point.expr} -> {finding.evidence}")

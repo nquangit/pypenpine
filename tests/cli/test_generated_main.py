@@ -51,3 +51,33 @@ def test_load_request_sets_meta(tmp_path):
     _run_check(project, scheme="https", host="example.test", exp_host="example.test", exp_port=443)
     # default http port when none given
     _run_check(project, scheme="http", host="example.test", exp_host="example.test", exp_port=80)
+
+
+_RUN_CHECK = """
+import config, main
+from penpine.attack.runner import Runner
+from penpine.core.parse.http_parser import parse_response
+
+
+class _FakeSender:
+    async def send(self, request):
+        return parse_response(b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\n\\r\\nok")
+
+
+# run the attack path with a fake sender (no sockets); regression for
+# config/CLI strings vs the typed Runner.run(attack=AttackType)
+main.build_runner = lambda: Runner(sender=_FakeSender(), max_concurrency=2)
+config.TARGET_HOST = "example.test"
+main.main(argv=["sqli"])
+print("RUN_OK")
+"""
+
+
+def test_generated_main_runs_attack_path(tmp_path):
+    project = tmp_path / "proj"
+    render_project(project, VARS)
+    result = subprocess.run(
+        [sys.executable, "-c", _RUN_CHECK], cwd=project, capture_output=True, text=True
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert "RUN_OK" in result.stdout

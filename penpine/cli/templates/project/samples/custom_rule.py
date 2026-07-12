@@ -1,5 +1,10 @@
 """Custom analyzer ClassificationRule: tag injection points with attack types.
 
+A rule returns a set of `AttackType` members. `AttackType` is a closed enum
+(the canonical category vocabulary), so custom rules reuse existing
+categories; introducing a brand-new category means extending
+`penpine.attack.types.AttackType`.
+
 Pass your rule list to analyze(request, rules=[...]) to influence selection.
     python -m samples.custom_rule
 """
@@ -14,6 +19,7 @@ class GraphQLRule(ClassificationRule):
 
     def match(self, point):
         if point.name.lower() in {"query", "operationname", "variables"}:
+            # GraphQL argument values often reach a SQL backend -> tag as SQLi candidates
             return {AttackType.SQLI}
         return set()
 
