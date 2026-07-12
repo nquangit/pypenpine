@@ -1,6 +1,7 @@
 import pytest
 
 from penpine.core.message import Request
+from penpine.flow.exceptions import StepError
 from penpine.flow.flow import Flow
 from penpine.flow.step import Recovery, Step
 from tests.flow._fakes import FakeActor, response
@@ -62,7 +63,7 @@ async def test_recovery_exhausted_when_condition_persists():
             ),
         ],
     )
-    with pytest.raises(Exception):  # noqa: B017 - StepError, fail-fast
+    with pytest.raises(StepError):
         await flow.run()
     # retry attempted exactly once beyond the original
     assert len(login_actor.sent) == 2
@@ -112,3 +113,35 @@ async def test_recovery_without_retry_marks_recovered():
     result = await flow.run()
     assert result.step("login").status == "recovered"
     assert len(actor.sent) == 1  # no retry
+
+
+async def test_recovery_subflow_failure_marks_step_failed():
+    # When the recovery sub-flow itself fails, the step stays failed (recovery_ran True).
+    def boom(request):
+        raise RuntimeError("activation service down")
+
+    login_actor = FakeActor(script=[response(b"needs activation", status=b"409 Conflict")])
+    broken_activation = Flow(
+        actor=FakeActor(script=[boom]),
+        steps=[Step("activate", request=Request.from_url("http://t/activate"))],
+    )
+    flow = Flow(
+        actor=login_actor,
+        steps=[
+            Step(
+                "login",
+                request=Request.from_url("http://t/login"),
+                recovery=Recovery(
+                    when=lambda o: o.response is not None and o.response.status_code == 409,
+                    do=broken_activation,
+                    retry=True,
+                ),
+            )
+        ],
+    )
+    with pytest.raises(StepError) as ei:
+        await flow.run()
+    login_result = ei.value.result.step("login")
+    assert login_result.status == "failed"
+    assert login_result.recovery_ran is True
+    assert len(login_actor.sent) == 1  # sub-flow failed before any retry
