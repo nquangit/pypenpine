@@ -3,6 +3,7 @@ import pytest
 from penpine.attack import registry
 from penpine.attack.modules import register_builtins
 from penpine.attack.runner import Runner
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 
@@ -29,12 +30,12 @@ class SqlErrorSender:
 async def test_end_to_end_sqli_finding_via_runner():
     register_builtins()
     report = await Runner(sender=SqlErrorSender()).run(
-        Request.from_url("http://h/?q=hi"), attack="sqli"
+        Request.from_url("http://h/?q=hi"), attack=AttackType.SQLI
     )
-    assert report.attack_type == "sqli"
+    assert report.attack_type is AttackType.SQLI
     assert report.findings, "expected at least one SQLi finding"
     finding = report.findings[0]
-    assert finding.attack_type == "sqli"
+    assert finding.attack_type is AttackType.SQLI
     assert finding.confidence.name == "HIGH"
     assert finding.request is not None
     assert finding.point.expr == "param:q"

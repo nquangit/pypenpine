@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from penpine.attack.types import AttackType
+
 
 @dataclass
 class Attempt:
@@ -26,7 +28,7 @@ class Attempt:
 @dataclass
 class Report:
     request: object
-    attack_type: str | None
+    attack_type: AttackType | None
     baseline: object | None
     attempts: list = field(default_factory=list)
 

@@ -9,6 +9,7 @@ from penpine.attack.generator import PayloadGenerator
 from penpine.attack.models import InjectionPoint, Payload, TestCase
 from penpine.attack.module import AttackModule
 from penpine.attack.runner import Runner
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
@@ -27,7 +28,9 @@ def _ok(_request):
 
 
 def _xss_module():
-    return AttackModule("xss", EchoGenerator(), EchoValidator(), applies_to=("param",))
+    return AttackModule(
+        "xss", EchoGenerator(), EchoValidator(), attack_type=AttackType.XSS, applies_to=("param",)
+    )
 
 
 async def test_max_concurrency_bounds_fanout():
@@ -53,7 +56,7 @@ async def test_per_call_sender_override():
     default = FakeSender([reflect])
     override = FakeSender([reflect])
     runner = Runner(sender=default)
-    await runner.run(Request.from_url("http://h/?q=hi"), attack="xss", sender=override)
+    await runner.run(Request.from_url("http://h/?q=hi"), attack=AttackType.XSS, sender=override)
     assert override.sent  # override received the requests
     assert not default.sent  # instance default untouched
 
@@ -96,7 +99,7 @@ async def test_capture_baseline_false_skips_baseline():
     registry.register(_xss_module())
     sender = FakeSender([reflect])
     report = await Runner(sender=sender, capture_baseline=False).run(
-        Request.from_url("http://h/?q=hi"), attack="xss"
+        Request.from_url("http://h/?q=hi"), attack=AttackType.XSS
     )
     assert report.baseline is None
     assert len(sender.sent) == len(report.attempts)  # no extra baseline send
