@@ -413,12 +413,12 @@ git commit --no-gpg-sign -m "feat(flow): add Step, Recovery, StepOutcome"
 - Test: `tests/flow/test_flow.py`
 
 **Interfaces:**
-- Consumes: `render`, `build_mapping`, `capture` from `penpine.data`; `Context` from `penpine.data.context`; `StepResult`, `FlowResult`; `StepOutcome`; `StepError`.
+- Consumes: `render`, `build_mapping`, `capture` from `penpine.data`; `Context` from `penpine.data.context`; `StepResult`, `FlowResult`, `StepError`.
 - Produces:
-  - `Flow(steps, *, actor=None, context=None, continue_on_error=False)` with `.steps`, `.step(name)`, `async run()`, `run_sync()`, and internal `async _execute(ctx, default_actor)`, `async _run_step(step, ctx, default_actor, *, allow_recovery=True)`, `async _attempt(step, ctx, actor)`.
-  - `_run_step` returns a `StepResult`. In this task, `_attempt` handles only the `request` path; `recovery` is present in `_run_step` but the recovery branch stays inert because Task 3's `Step` allows `recovery=None` (Task 6 exercises it).
+  - `Flow(steps, *, actor=None, context=None, continue_on_error=False)` with `.steps`, `.step(name)`, `async run()`, `run_sync()`, and internal `async _execute(ctx, default_actor)`, `async _run_step(step, ctx, default_actor)`, `async _attempt(step, ctx, actor)`.
+  - `_run_step` returns a `StepResult` classified `skipped`/`ok`/`failed`.
 
-Note for the implementer: this task writes the full engine loop **including** the recovery/action branches so later tasks only add tests plus one method replacement. The recovery branch is covered in Task 6; the action branch in Task 6's sibling. Write the code exactly as shown.
+Scope for this task: the **request path only** — guard-skip, send/render/capture, classify ok/failed, fail-fast vs `continue_on_error`. Recovery (Task 5) and the `action` escape hatch (Task 6) are added by later tasks that replace `_run_step`/`_attempt`; do NOT implement them here. Write the code exactly as shown.
 
 - [ ] **Step 1: Add the flow test fake**
 
@@ -569,7 +569,6 @@ Create `penpine/flow/flow.py`:
 from __future__ import annotations
 
 import asyncio
-import inspect
 import time
 
 from penpine.data.capture import capture
@@ -577,22 +576,6 @@ from penpine.data.context import Context
 from penpine.data.template import build_mapping, render
 from penpine.flow.exceptions import FlowError, StepError
 from penpine.flow.results import FlowResult, StepResult
-from penpine.flow.step import StepOutcome
-
-
-class FlowContext:
-    """Passed to an escape-hatch step's `action` callable."""
-
-    def __init__(self, ctx, actor):
-        self.ctx = ctx
-        self.actor = actor
-
-    async def send(self, request, *, actor=None):
-        target = actor or self.actor
-        rendered = render(
-            request, build_mapping(context=self.ctx, data=getattr(target, "data", None))
-        )
-        return await target.send(rendered)
 
 
 class Flow:
@@ -633,16 +616,11 @@ class Flow:
         request = response = error = None
         captured = []
         try:
-            if step.action is not None:
-                fc = FlowContext(ctx, actor)
-                maybe = step.action(fc)
-                response = await maybe if inspect.isawaitable(maybe) else maybe
-            else:
-                raw = step.request(ctx) if callable(step.request) else step.request
-                request = render(
-                    raw, build_mapping(context=ctx, data=getattr(actor, "data", None))
-                )
-                response = await actor.send(request)
+            raw = step.request(ctx) if callable(step.request) else step.request
+            request = render(
+                raw, build_mapping(context=ctx, data=getattr(actor, "data", None))
+            )
+            response = await actor.send(request)
             if step.capture and response is not None:
                 captured = list(capture(ctx, response, step.capture).keys())
         except Exception as exc:  # noqa: BLE001 - recorded on the StepResult, never leaked mid-step
@@ -650,55 +628,19 @@ class Flow:
         elapsed_ms = (time.perf_counter() - start) * 1000
         return request, response, error, captured, elapsed_ms
 
-    async def _run_step(self, step, ctx, default_actor, *, allow_recovery=True):
+    async def _run_step(self, step, ctx, default_actor):
         actor = step.actor or default_actor
-        if actor is None and step.action is None:
+        if actor is None:
             raise FlowError(f"step {step.name!r} has no actor to send with")
 
         if step.guard is not None and not step.guard(ctx):
             return StepResult(step=step.name, actor=actor, status="skipped")
 
         request, response, error, captured, elapsed_ms = await self._attempt(step, ctx, actor)
-        outcome = StepOutcome(ctx=ctx, actor=actor, response=response, error=error)
-
-        triggered = step.recovery is not None and step.recovery.when(outcome)
-
-        if not triggered:
-            status = "failed" if error is not None else "ok"
-            return StepResult(
-                step=step.name, actor=actor, status=status, request=request,
-                response=response, captured=captured, recovery_ran=False,
-                error=error, elapsed_ms=elapsed_ms,
-            )
-
-        # A recovery condition fired.
-        if not allow_recovery:
-            # Already inside a retry — cannot recover again.
-            return StepResult(
-                step=step.name, actor=actor, status="failed", request=request,
-                response=response, captured=captured, recovery_ran=True,
-                error=error, elapsed_ms=elapsed_ms,
-            )
-
-        try:
-            await step.recovery.do._execute(ctx, default_actor)
-        except FlowError:
-            return StepResult(
-                step=step.name, actor=actor, status="failed", request=request,
-                response=response, captured=captured, recovery_ran=True,
-                error=error, elapsed_ms=elapsed_ms,
-            )
-
-        if step.recovery.retry:
-            retry = await self._run_step(step, ctx, default_actor, allow_recovery=False)
-            retry.recovery_ran = True
-            if retry.status == "ok":
-                retry.status = "recovered"
-            return retry
-
+        status = "failed" if error is not None else "ok"
         return StepResult(
-            step=step.name, actor=actor, status="recovered", request=request,
-            response=response, captured=captured, recovery_ran=True,
+            step=step.name, actor=actor, status=status, request=request,
+            response=response, captured=captured, recovery_ran=False,
             error=error, elapsed_ms=elapsed_ms,
         )
 ```
@@ -725,12 +667,14 @@ git commit --no-gpg-sign -m "feat(flow): add Flow engine (linear, guard, capture
 ### Task 5: Recovery behavior
 
 **Files:**
-- Modify: none (engine already implements recovery in Task 4)
+- Modify: `penpine/flow/flow.py` (replace `_run_step` with the recovery-aware version; add one import)
 - Test: `tests/flow/test_recovery.py`
 
 **Interfaces:**
-- Consumes: `Flow`, `Step`, `Recovery` and the Task 4 fakes.
-- Produces: no new production code — this task adds the tests that exercise the recovery branch written in Task 4. (If a test fails, fix `_run_step` in `penpine/flow/flow.py`; do not add new modules.)
+- Consumes: `Flow`, `Step`, `Recovery`, `StepOutcome`, and the Task 4 fakes.
+- Produces: a recovery-aware `_run_step(step, ctx, default_actor, *, allow_recovery=True)` that, when `step.recovery.when(outcome)` fires, runs `recovery.do` as a sub-flow sharing the context and retries the step once (`allow_recovery=False`), classifying `recovered`/`failed`.
+
+This is a genuine TDD task: write the failing recovery tests first, then replace `_run_step`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -845,21 +789,92 @@ async def test_recovery_without_retry_marks_recovered():
     assert len(actor.sent) == 1  # no retry
 ```
 
-- [ ] **Step 2: Run tests**
+- [ ] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/flow/test_recovery.py -v`
-Expected: PASS (4 passed). If any fail, the bug is in `_run_step`'s recovery branch in `penpine/flow/flow.py` — fix it there.
+Expected: FAIL — the current `_run_step` has no recovery, so `test_recovery_runs_subflow_then_retry_succeeds` fails on `status == "recovered"` (it is `"failed"`), and the 409 cases raise `StepError` instead of recovering.
 
-- [ ] **Step 3: Run lint/format**
+- [ ] **Step 3: Add the `StepOutcome` import**
 
-Run: `ruff check tests/flow/test_recovery.py && ruff format --check tests/flow/test_recovery.py`
+In `penpine/flow/flow.py`, add to the imports block:
+
+```python
+from penpine.flow.step import StepOutcome
+```
+
+- [ ] **Step 4: Replace `_run_step` with the recovery-aware version**
+
+Replace the entire `_run_step` method in `penpine/flow/flow.py` with:
+
+```python
+    async def _run_step(self, step, ctx, default_actor, *, allow_recovery=True):
+        actor = step.actor or default_actor
+        if actor is None:
+            raise FlowError(f"step {step.name!r} has no actor to send with")
+
+        if step.guard is not None and not step.guard(ctx):
+            return StepResult(step=step.name, actor=actor, status="skipped")
+
+        request, response, error, captured, elapsed_ms = await self._attempt(step, ctx, actor)
+        outcome = StepOutcome(ctx=ctx, actor=actor, response=response, error=error)
+
+        triggered = step.recovery is not None and step.recovery.when(outcome)
+
+        if not triggered:
+            status = "failed" if error is not None else "ok"
+            return StepResult(
+                step=step.name, actor=actor, status=status, request=request,
+                response=response, captured=captured, recovery_ran=False,
+                error=error, elapsed_ms=elapsed_ms,
+            )
+
+        # A recovery condition fired.
+        if not allow_recovery:
+            # Already inside a retry — cannot recover again.
+            return StepResult(
+                step=step.name, actor=actor, status="failed", request=request,
+                response=response, captured=captured, recovery_ran=True,
+                error=error, elapsed_ms=elapsed_ms,
+            )
+
+        try:
+            await step.recovery.do._execute(ctx, default_actor)
+        except FlowError:
+            return StepResult(
+                step=step.name, actor=actor, status="failed", request=request,
+                response=response, captured=captured, recovery_ran=True,
+                error=error, elapsed_ms=elapsed_ms,
+            )
+
+        if step.recovery.retry:
+            retry = await self._run_step(step, ctx, default_actor, allow_recovery=False)
+            retry.recovery_ran = True
+            if retry.status == "ok":
+                retry.status = "recovered"
+            return retry
+
+        return StepResult(
+            step=step.name, actor=actor, status="recovered", request=request,
+            response=response, captured=captured, recovery_ran=True,
+            error=error, elapsed_ms=elapsed_ms,
+        )
+```
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `pytest tests/flow/test_recovery.py tests/flow/test_flow.py -v`
+Expected: PASS (all — recovery tests plus the Task 4 tests still green).
+
+- [ ] **Step 6: Run lint/format**
+
+Run: `ruff check penpine/flow tests/flow && ruff format --check penpine/flow tests/flow`
 Expected: no errors (fix with `ruff format` if needed).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add tests/flow/test_recovery.py
-git commit --no-gpg-sign -m "test(flow): cover step-local recovery (retry, exhaustion, exception, no-retry)"
+git add penpine/flow/flow.py tests/flow/test_recovery.py
+git commit --no-gpg-sign -m "feat(flow): add step-local recovery (subflow + retry-once)"
 ```
 
 ---
@@ -867,12 +882,17 @@ git commit --no-gpg-sign -m "test(flow): cover step-local recovery (retry, exhau
 ### Task 6: Escape-hatch action step
 
 **Files:**
-- Modify: none (engine already handles `action` in Task 4's `_attempt`)
+- Modify: `penpine/flow/flow.py` (add `FlowContext`, add `import inspect`, add the `action` branch to `_attempt`, relax the actor-required check in `_run_step`)
 - Test: `tests/flow/test_action.py`
 
 **Interfaces:**
-- Consumes: `Flow`, `Step`, `FlowContext`.
-- Produces: no new production code — tests exercising the `action` branch and `FlowContext.send`.
+- Consumes: `Flow`, `Step`.
+- Produces:
+  - `FlowContext(ctx, actor)` with `async send(request, *, actor=None)` (renders against the shared context, sends via the target).
+  - `_attempt` gains an `action` branch: when `step.action` is set, it calls `step.action(FlowContext(ctx, actor))`, awaiting the result if it is awaitable.
+  - `_run_step`'s actor-required check becomes `if actor is None and step.action is None:` so pure-action steps need no actor.
+
+This is a genuine TDD task: write the failing action tests first, then add the code.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -914,16 +934,83 @@ async def test_async_action_can_send_via_flow_context():
     assert result.step("ping").response.body.text() == "pong"
 ```
 
-- [ ] **Step 2: Run tests**
+- [ ] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/flow/test_action.py -v`
-Expected: PASS (2 passed). If failing, fix the `action` branch in `_attempt` in `penpine/flow/flow.py`.
+Expected: FAIL — `ImportError: cannot import name 'FlowContext'` (it does not exist yet).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Add `import inspect` and the `FlowContext` class**
+
+In `penpine/flow/flow.py`, add `import inspect` to the stdlib imports (next to `import asyncio` / `import time`). Then add the `FlowContext` class immediately above `class Flow:`:
+
+```python
+class FlowContext:
+    """Passed to an escape-hatch step's `action` callable."""
+
+    def __init__(self, ctx, actor):
+        self.ctx = ctx
+        self.actor = actor
+
+    async def send(self, request, *, actor=None):
+        target = actor or self.actor
+        rendered = render(
+            request, build_mapping(context=self.ctx, data=getattr(target, "data", None))
+        )
+        return await target.send(rendered)
+```
+
+- [ ] **Step 4: Add the `action` branch to `_attempt`**
+
+Replace the `try:` block body in `_attempt` so it branches on `step.action`. The full method becomes:
+
+```python
+    async def _attempt(self, step, ctx, actor):
+        start = time.perf_counter()
+        request = response = error = None
+        captured = []
+        try:
+            if step.action is not None:
+                maybe = step.action(FlowContext(ctx, actor))
+                response = await maybe if inspect.isawaitable(maybe) else maybe
+            else:
+                raw = step.request(ctx) if callable(step.request) else step.request
+                request = render(
+                    raw, build_mapping(context=ctx, data=getattr(actor, "data", None))
+                )
+                response = await actor.send(request)
+            if step.capture and response is not None:
+                captured = list(capture(ctx, response, step.capture).keys())
+        except Exception as exc:  # noqa: BLE001 - recorded on the StepResult, never leaked mid-step
+            error = exc
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        return request, response, error, captured, elapsed_ms
+```
+
+- [ ] **Step 5: Relax the actor-required check in `_run_step`**
+
+In `_run_step`, change the actor guard so pure-action steps need no actor:
+
+```python
+        actor = step.actor or default_actor
+        if actor is None and step.action is None:
+            raise FlowError(f"step {step.name!r} has no actor to send with")
+```
+
+- [ ] **Step 6: Run tests to verify they pass**
+
+Run: `pytest tests/flow -v`
+Expected: PASS (all flow tests, including the new action tests).
+
+- [ ] **Step 7: Run lint/format**
+
+Run: `ruff check penpine/flow tests/flow && ruff format --check penpine/flow tests/flow`
+Expected: no errors.
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add tests/flow/test_action.py
-git commit --no-gpg-sign -m "test(flow): cover escape-hatch action steps and FlowContext.send"
+git add penpine/flow/flow.py tests/flow/test_action.py
+git commit --no-gpg-sign -m "feat(flow): add escape-hatch action steps and FlowContext"
 ```
 
 ---
