@@ -40,6 +40,14 @@ class Flow:
     def steps(self):
         return list(self._steps)
 
+    @property
+    def actor(self):
+        return self._actor
+
+    @property
+    def continue_on_error(self):
+        return self._continue_on_error
+
     def step(self, name):
         for s in self._steps:
             if s.name == name:
