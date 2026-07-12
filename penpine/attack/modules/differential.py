@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 from penpine.attack.models import Confidence, Finding, Payload
+from penpine.attack.types import AttackType
 
 _SQLI_KINDS = ("param", "form", "json", "multipart", "cookie")
 
@@ -14,7 +15,7 @@ class DifferentialModule:
 
     name = "differential"
     applies_to: tuple = ()
-    select_attack_type: str | None = None
+    attack_type = None
 
     def applies(self, kind: str) -> bool:
         return not self.applies_to or kind in self.applies_to
@@ -41,7 +42,7 @@ BOOLEAN_PAYLOAD_PAIRS = [
 
 class BooleanSqliModule(DifferentialModule):
     name = "sqli-boolean"
-    select_attack_type = "sqli"
+    attack_type = AttackType.SQLI
     applies_to = _SQLI_KINDS
 
     def __init__(self, pairs=None):
@@ -57,7 +58,7 @@ class BooleanSqliModule(DifferentialModule):
                 rf, base, tolerance=tolerance
             ):
                 return Finding(
-                    attack_type="sqli-boolean",
+                    attack_type=AttackType.SQLI,
                     point=point,
                     payload=Payload(true_payload, technique="boolean-blind"),
                     confidence=Confidence.HIGH,
@@ -87,7 +88,7 @@ TIME_PAYLOAD_TEMPLATES = [
 
 class TimeSqliModule(DifferentialModule):
     name = "sqli-time"
-    select_attack_type = "sqli"
+    attack_type = AttackType.SQLI
     applies_to = _SQLI_KINDS
 
     def __init__(self, *, templates=None, delay=3, threshold=0.8, clock=time.perf_counter):
@@ -116,7 +117,7 @@ class TimeSqliModule(DifferentialModule):
             tc, _ = await self._timed(sender, request.replace_at(point.expr, control))
             if t2 - base_lat >= margin and tc - base_lat < margin:
                 return Finding(
-                    attack_type="sqli-time",
+                    attack_type=AttackType.SQLI,
                     point=point,
                     payload=Payload(payload, technique="time-blind"),
                     confidence=Confidence.HIGH,

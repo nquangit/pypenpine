@@ -29,5 +29,12 @@ def list_modules() -> list:
     return sorted(_REGISTRY)
 
 
+def by_type(attack_type, *, signature_only: bool = False) -> list:
+    mods = [m for m in _REGISTRY.values() if getattr(m, "attack_type", None) == attack_type]
+    if signature_only:
+        mods = [m for m in mods if not hasattr(m, "probe")]
+    return mods
+
+
 def clear() -> None:
     _REGISTRY.clear()

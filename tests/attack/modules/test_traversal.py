@@ -5,6 +5,7 @@ from penpine.attack.modules.traversal import (
     TraversalGenerator,
     TraversalValidator,
 )
+from penpine.attack.types import AttackType
 from penpine.core.parse.http_parser import parse_response
 
 
@@ -19,7 +20,7 @@ def resp(body):
 def test_generator_yields_payloads():
     cases = list(TraversalGenerator().generate(pt(), None))
     assert [c.payload.value for c in cases] == TRAVERSAL_PAYLOADS
-    assert all(c.attack_type == "path-traversal" for c in cases)
+    assert all(c.attack_type == AttackType.PATH_TRAVERSAL for c in cases)
 
 
 def test_validator_detects_passwd():

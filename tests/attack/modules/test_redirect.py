@@ -6,6 +6,7 @@ from penpine.attack.modules.redirect import (
     RedirectGenerator,
     RedirectValidator,
 )
+from penpine.attack.types import AttackType
 from penpine.core.parse.http_parser import parse_response
 
 
@@ -17,7 +18,7 @@ def test_generator_uses_canary_host():
     cases = list(RedirectGenerator().generate(pt(), None))
     assert [c.payload.value for c in cases] == REDIRECT_PAYLOADS
     assert all(CANARY_HOST in c.payload.value for c in cases)
-    assert all(c.attack_type == "open-redirect" for c in cases)
+    assert all(c.attack_type == AttackType.OPEN_REDIRECT for c in cases)
 
 
 def test_validator_detects_redirect_to_canary():
@@ -27,7 +28,9 @@ def test_validator_detects_redirect_to_canary():
         b"Content-Length: 0\r\n\r\n"
     )
     f = RedirectValidator().evaluate(tc, resp, None)
-    assert f is not None and f.attack_type == "open-redirect" and f.confidence.name == "HIGH"
+    assert (
+        f is not None and f.attack_type == AttackType.OPEN_REDIRECT and f.confidence.name == "HIGH"
+    )
 
 
 def test_validator_non_redirect_or_other_host_returns_none():

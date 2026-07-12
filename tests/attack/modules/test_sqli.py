@@ -8,6 +8,7 @@ from penpine.attack.modules.sqli import (
     SqliGenerator,
     SqliValidator,
 )
+from penpine.attack.types import AttackType
 from penpine.core.parse.http_parser import parse_response
 
 
@@ -32,7 +33,7 @@ def test_generator_numeric_context_adds_payloads():
 def test_validator_detects_sql_error():
     tc = next(iter(SqliGenerator().generate(pt("x"), None)))
     f = SqliValidator().evaluate(tc, resp(b"You have an error in your SQL syntax near '''"), None)
-    assert f is not None and f.attack_type == "sqli" and f.confidence.name == "HIGH"
+    assert f is not None and f.attack_type == AttackType.SQLI and f.confidence.name == "HIGH"
 
 
 def test_validator_clean_response_returns_none():

@@ -22,6 +22,7 @@ from penpine.attack.registry import (
 )
 from penpine.attack.results import Attempt, Report
 from penpine.attack.runner import Runner
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "TestCase",
     "Finding",
     "Confidence",
+    "AttackType",
     "PayloadGenerator",
     "Validator",
     "AttackModule",

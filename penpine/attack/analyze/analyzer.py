@@ -17,5 +17,7 @@ def analyze(request, *, rules=None, kinds=None) -> Analysis:
         tags: set = set()
         for rule in active:
             tags |= rule.match(base)
-        points.append(dataclasses.replace(base, attack_types=tuple(sorted(tags))))
+        points.append(
+            dataclasses.replace(base, attack_types=tuple(sorted(tags, key=lambda t: t.value)))
+        )
     return Analysis(request=request, points=tuple(points))

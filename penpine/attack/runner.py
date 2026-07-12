@@ -10,8 +10,9 @@ import time
 from penpine.attack.analyze.analyzer import analyze
 from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.models import Payload, TestCase
-from penpine.attack.registry import get as _registry_get
+from penpine.attack.registry import by_type as _registry_by_type
 from penpine.attack.results import Attempt, Report
+from penpine.attack.types import AttackType
 from penpine.transport.engine import Engine
 
 
@@ -24,12 +25,13 @@ class Runner:
         self._loop_thread = None
         self._loop_lock = threading.Lock()
 
-    def _resolve_module(self, attack, module):
+    def _resolve_modules(self, attack, module):
         if module is not None:
-            return module
+            mod = module() if isinstance(module, type) else module
+            return [mod]
         if attack is not None:
-            return _registry_get(attack)
-        return None
+            return _registry_by_type(attack, signature_only=True)
+        return []
 
     def _select_points(self, request, module, attack_type, points):
         if points is not None:
@@ -42,7 +44,7 @@ class Runner:
         self,
         request,
         *,
-        attack=None,
+        attack: AttackType | None = None,
         module=None,
         test_cases=None,
         points=None,
@@ -51,75 +53,85 @@ class Runner:
     ):
         """Run an attack and return a Report.
 
-        Provide one of: `attack` (module name resolved from the registry),
-        `module` (an AttackModule instance), or `test_cases` (explicit TestCases).
-        Points to attack default to `analyze(request).for_attack(attack_type)`
-        filtered by `module.applies(kind)`; note a module's name should match an
-        analyzer attack-type tag or selection will be empty. Pass `points=` to
-        override selection entirely (this BYPASSES the `applies` filter — it runs
-        the generator on exactly the points you give). `sender` overrides the
-        instance's sender for this call.
+        Provide one of: `attack` (an `AttackType`, resolved to every registered
+        signature module of that category via `registry.by_type`), `module` (an
+        `AttackModule`/`DifferentialModule` instance or class -- a class is
+        instantiated no-arg), or `test_cases` (explicit `TestCase`s, no module
+        involved). Points to attack default to `analyze(request).for_attack(mod.attack_type)`
+        filtered by `module.applies(kind)` for each resolved module. Pass `points=`
+        to override selection entirely (this BYPASSES the `applies` filter -- it
+        runs the generator/prober on exactly the points you give). `sender`
+        overrides the instance's sender for this call.
 
-        A differential module (one exposing `probe`) takes an active-prober path:
-        each selected point is probed once (points chosen via the module's
-        `select_attack_type` tag), and `test_cases`/`validator` are ignored since
-        the module drives its own sends.
+        A category (`attack=`) only resolves signature modules -- differential
+        (active-prober) modules are opt-in via `module=`. Each resolved module
+        that exposes `probe` takes the active-prober path (one probe per
+        selected point); other modules go through generate -> send -> validate
+        using that module's own validator. All resolved modules' attempts are
+        aggregated into a single `Report`.
         """
         active_sender = sender if sender is not None else self._sender
-        module = self._resolve_module(attack, module)
-        attack_type = attack if attack is not None else (module.name if module else None)
-        if module is not None and hasattr(module, "probe"):
-            selection_tag = getattr(module, "select_attack_type", None) or attack or module.name
-            selected = self._select_points(request, module, selection_tag, points)
-            baseline = None
-            if self._capture_baseline:
-                try:
-                    baseline = await active_sender.send(request)
-                except Exception:
-                    baseline = None
-            semaphore = asyncio.Semaphore(self._max_concurrency)
 
-            async def _bounded_probe(point):
-                async with semaphore:
-                    return await self._probe_attempt(
-                        request, point, module, baseline, active_sender
-                    )
+        # Explicit test-cases path (no module).
+        if test_cases is not None:
+            cases = list(test_cases)
+            baseline = await self._baseline(request, active_sender)
+            attempts = await self._run_cases(request, cases, validator, baseline, active_sender)
+            return Report(request=request, attack_type=None, baseline=baseline, attempts=attempts)
 
-            attempts = list(await asyncio.gather(*(_bounded_probe(p) for p in selected)))
-            return Report(
-                request=request, attack_type=attack_type, baseline=baseline, attempts=attempts
-            )
+        modules = self._resolve_modules(attack, module)
+        if not modules:
+            raise AttackConfigError("run() requires one of attack=, module=, or test_cases=")
 
-        if validator is None and module is not None:
-            validator = module.validator
+        baseline = await self._baseline(request, active_sender)
+        attack_type = (
+            attack
+            if attack is not None
+            else (modules[0].attack_type if len(modules) == 1 else None)
+        )
 
-        if test_cases is None:
-            if module is None:
-                raise AttackConfigError("run() requires one of attack=, module=, or test_cases=")
-            cases = []
-            for point in self._select_points(request, module, attack_type, points):
-                cases.extend(module.generate(point, request))
-            test_cases = cases
-        else:
-            test_cases = list(test_cases)
+        attempts = []
+        for mod in modules:
+            selected = self._select_points(request, mod, mod.attack_type, points)
+            if hasattr(mod, "probe"):
+                attempts += await self._run_probes(request, selected, mod, baseline, active_sender)
+            else:
+                cases = []
+                for point in selected:
+                    cases.extend(mod.generate(point, request))
+                attempts += await self._run_cases(
+                    request, cases, mod.validator, baseline, active_sender
+                )
 
-        baseline = None
-        if self._capture_baseline:
-            try:
-                baseline = await active_sender.send(request)
-            except Exception:
-                baseline = None
+        return Report(
+            request=request, attack_type=attack_type, baseline=baseline, attempts=attempts
+        )
 
+    async def _baseline(self, request, sender):
+        if not self._capture_baseline:
+            return None
+        try:
+            return await sender.send(request)
+        except Exception:
+            return None
+
+    async def _run_cases(self, request, cases, validator, baseline, sender):
         semaphore = asyncio.Semaphore(self._max_concurrency)
 
         async def _bounded(tc):
             async with semaphore:
-                return await self._attempt(request, tc, validator, baseline, active_sender)
+                return await self._attempt(request, tc, validator, baseline, sender)
 
-        attempts = list(await asyncio.gather(*(_bounded(tc) for tc in test_cases)))
-        return Report(
-            request=request, attack_type=attack_type, baseline=baseline, attempts=attempts
-        )
+        return list(await asyncio.gather(*(_bounded(tc) for tc in cases)))
+
+    async def _run_probes(self, request, points, module, baseline, sender):
+        semaphore = asyncio.Semaphore(self._max_concurrency)
+
+        async def _bounded(point):
+            async with semaphore:
+                return await self._probe_attempt(request, point, module, baseline, sender)
+
+        return list(await asyncio.gather(*(_bounded(p) for p in points)))
 
     async def _attempt(self, base, test_case, validator, baseline, sender):
         start = time.perf_counter()
@@ -166,7 +178,7 @@ class Runner:
 
     async def _probe_attempt(self, request, point, module, baseline, sender):
         placeholder = TestCase(
-            point=point, payload=Payload("<differential>"), attack_type=module.name
+            point=point, payload=Payload("<differential>"), attack_type=module.attack_type
         )
         try:
             finding = await module.probe(point, request, sender, baseline=baseline)

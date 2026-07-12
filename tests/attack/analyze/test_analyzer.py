@@ -1,5 +1,6 @@
 from penpine.attack.analyze.analyzer import analyze
 from penpine.attack.analyze.rules import ClassificationRule
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 
 CRAFTED = (
@@ -16,18 +17,18 @@ def _find(analysis, expr):
 
 def test_analyze_tags_points_by_kind_name_and_value():
     a = analyze(Request.from_raw(CRAFTED))
-    assert {"idor", "sqli"} <= set(_find(a, "param:id").attack_types)
-    assert "xss" in _find(a, "param:q").attack_types
-    assert {"open-redirect", "ssrf"} <= set(_find(a, "param:next").attack_types)
-    assert "host-header" in _find(a, "header:Host").attack_types
-    assert "header-injection" in _find(a, "header:User-Agent").attack_types
-    assert "path-traversal" in _find(a, "path-seg:1").attack_types
-    assert {"sqli", "xss"} <= set(_find(a, "json:$.name").attack_types)
+    assert {AttackType.IDOR, AttackType.SQLI} <= set(_find(a, "param:id").attack_types)
+    assert AttackType.XSS in _find(a, "param:q").attack_types
+    assert {AttackType.OPEN_REDIRECT, AttackType.SSRF} <= set(_find(a, "param:next").attack_types)
+    assert AttackType.HOST_HEADER in _find(a, "header:Host").attack_types
+    assert AttackType.HEADER_INJECTION in _find(a, "header:User-Agent").attack_types
+    assert AttackType.PATH_TRAVERSAL in _find(a, "path-seg:1").attack_types
+    assert {AttackType.SQLI, AttackType.XSS} <= set(_find(a, "json:$.name").attack_types)
 
 
 def test_for_attack_selects_points():
     a = analyze(Request.from_raw(CRAFTED))
-    sqli_exprs = {p.expr for p in a.for_attack("sqli")}
+    sqli_exprs = {p.expr for p in a.for_attack(AttackType.SQLI)}
     assert "param:id" in sqli_exprs and "json:$.name" in sqli_exprs
     assert "header:Host" not in sqli_exprs
 
@@ -48,13 +49,22 @@ def test_custom_rule_applied():
         name = "tagger"
 
         def match(self, point):
-            return {"custom"} if point.kind == "param" else set()
+            return {AttackType.BROKEN_ACCESS} if point.kind == "param" else set()
 
     a = analyze(Request.from_url("http://h/?a=1"), rules=[Tagger()])
-    assert "custom" in next(p for p in a.points if p.expr == "param:a").attack_types
+    assert AttackType.BROKEN_ACCESS in next(p for p in a.points if p.expr == "param:a").attack_types
 
 
 def test_attack_types_sorted_for_determinism():
     a = analyze(Request.from_url("http://h/?id=1"))
     tags = _find(a, "param:id").attack_types
-    assert list(tags) == sorted(tags)
+    assert list(tags) == sorted(tags, key=lambda t: t.value)
+
+
+def test_analyze_tags_points_with_attacktype_enum():
+    analysis = analyze(Request.from_url("http://t/p?id=7&q=hi&next=http://e.com"))
+    tags = analysis.attack_types()
+    assert AttackType.SQLI in tags
+    assert all(isinstance(t, AttackType) for p in analysis for t in p.attack_types)
+    ids = analysis.for_attack(AttackType.SQLI)
+    assert any(p.name == "id" for p in ids)

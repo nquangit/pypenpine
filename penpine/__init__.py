@@ -1,6 +1,7 @@
 """Penpine — layered Python pentesting framework (L0 HTTP core)."""
 
 from penpine.attack.runner import Runner
+from penpine.attack.types import AttackType
 from penpine.auth.manager import SessionManager
 from penpine.auth.profile import AuthProfile
 from penpine.core.body.base import Body
@@ -30,6 +31,7 @@ __all__ = [
     "Context",
     "Identity",
     "Runner",
+    "AttackType",
     "Flow",
     "Step",
 ]

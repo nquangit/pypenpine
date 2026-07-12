@@ -5,6 +5,7 @@ from __future__ import annotations
 from penpine.attack.generator import PayloadGenerator
 from penpine.attack.models import Confidence, Finding, Payload, TestCase
 from penpine.attack.module import AttackModule
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 CANARY_HOST = "penpine-canary.example"
@@ -21,7 +22,7 @@ class RedirectGenerator(PayloadGenerator):
             yield TestCase(
                 point=point,
                 payload=Payload(value, technique="redirect"),
-                attack_type="open-redirect",
+                attack_type=AttackType.OPEN_REDIRECT,
             )
 
 
@@ -34,7 +35,7 @@ class RedirectValidator(Validator):
             location = response.headers.get("Location", "")
             if self._host in location:
                 return Finding(
-                    "open-redirect",
+                    AttackType.OPEN_REDIRECT,
                     test_case.point,
                     test_case.payload,
                     Confidence.HIGH,
@@ -49,6 +50,7 @@ REDIRECT_MODULE = AttackModule(
     "open-redirect",
     RedirectGenerator(),
     RedirectValidator(),
+    attack_type=AttackType.OPEN_REDIRECT,
     applies_to=("param", "form", "json"),
     description="open redirect",
 )

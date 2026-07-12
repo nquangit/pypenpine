@@ -1,6 +1,7 @@
 from penpine.attack import registry
 from penpine.attack.modules import BUILTIN_MODULES, DIFFERENTIAL_MODULES, register_builtins
 from penpine.attack.runner import Runner
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 
@@ -38,8 +39,10 @@ class _BoolSender:
 async def test_end_to_end_boolean_via_runner():
     register_builtins()
     req = Request.from_url("http://h/s?q=hi")
+    # differential (probe) modules are opt-in via module=; attack= only selects
+    # signature modules of a category.
     report = await Runner(sender=_BoolSender(), capture_baseline=False).run(
-        req, attack="sqli-boolean"
+        req, module=registry.get("sqli-boolean")
     )
-    assert any(f.attack_type == "sqli-boolean" for f in report.findings)
+    assert any(f.attack_type is AttackType.SQLI for f in report.findings)
     assert any(a.test_case.point.expr == "param:q" for a in report.attempts)

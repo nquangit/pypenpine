@@ -5,6 +5,7 @@ from penpine.attack.models import (
     Payload,
     TestCase,
 )
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 
 
@@ -44,7 +45,7 @@ def test_payload_and_testcase_defaults():
     assert p.technique == "boolean"
     assert p.meta == {}
     point = InjectionPoint("param:a", "param", "a", "1")
-    tc = TestCase(point=point, payload=p, attack_type="sqli")
+    tc = TestCase(point=point, payload=p, attack_type=AttackType.SQLI)
     assert tc.request is None
     assert tc.marker is None
     assert tc.meta == {}
@@ -58,7 +59,7 @@ def test_confidence_ordering():
 def test_finding_defaults():
     point = InjectionPoint("param:a", "param", "a", "1")
     f = Finding(
-        attack_type="sqli",
+        attack_type=AttackType.SQLI,
         point=point,
         payload=Payload("x"),
         confidence=Confidence.HIGH,

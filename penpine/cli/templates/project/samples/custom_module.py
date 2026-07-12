@@ -1,7 +1,7 @@
 """Wire a generator + validator into a registered AttackModule.
 
-Once registered, `Runner.run(req, attack="crlf-leak")` (or module=MODULE) selects
-points, generates payloads, sends, and validates end to end.
+Once registered, `Runner.run(req, module=MODULE)` selects points, generates
+payloads, sends, and validates end to end.
     python -m samples.custom_module
 """
 from penpine.attack import Runner, registry

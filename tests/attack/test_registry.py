@@ -4,6 +4,8 @@ from penpine.attack import registry
 from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.generator import PayloadGenerator
 from penpine.attack.module import AttackModule
+from penpine.attack.modules import register_builtins
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 
@@ -56,3 +58,13 @@ def test_list_and_unregister_and_clear():
     assert registry.list_modules() == ["b"]
     registry.clear()
     assert registry.list_modules() == []
+
+
+def test_by_type_signature_only_excludes_probe_modules():
+    registry.clear()
+    register_builtins()
+    sig = registry.by_type(AttackType.SQLI, signature_only=True)
+    assert [m.name for m in sig] == ["sqli"]  # only the error-based module
+    allsqli = {m.name for m in registry.by_type(AttackType.SQLI)}
+    assert {"sqli", "sqli-boolean", "sqli-time"} <= allsqli
+    registry.clear()

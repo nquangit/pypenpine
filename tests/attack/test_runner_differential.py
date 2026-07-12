@@ -1,12 +1,13 @@
 from penpine.attack.models import Confidence, Finding, Payload
 from penpine.attack.runner import Runner
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 
 
 class _FakeDiff:
     name = "sqli-boolean"
     applies_to = ("param",)
-    select_attack_type = "sqli"
+    attack_type = AttackType.SQLI
 
     def __init__(self, behavior):
         self._behavior = behavior  # callable(point) -> Finding | None | raises
@@ -33,7 +34,7 @@ async def test_runner_probes_each_point_and_collects_findings():
     req = Request.from_url("http://h/s?q=hi")
     report = await Runner(capture_baseline=False).run(req, module=module, sender=_NullSender())
     assert len(report.findings) >= 1
-    assert report.attack_type == "sqli-boolean"
+    assert report.attack_type is AttackType.SQLI
     assert all(a.test_case.point.kind == "param" for a in report.attempts)
 
 
