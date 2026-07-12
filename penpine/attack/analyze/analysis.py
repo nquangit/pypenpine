@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from penpine.attack.types import AttackType
+
 
 @dataclass(frozen=True)
 class Analysis:
     request: object
     points: tuple
 
-    def for_attack(self, attack_type: str) -> list:
+    def for_attack(self, attack_type: AttackType) -> list:
         return [p for p in self.points if attack_type in p.attack_types]
 
     def by_kind(self) -> dict:

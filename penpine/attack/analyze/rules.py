@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from penpine.attack.analyze.detectors import is_empty, is_numeric, is_path, is_url
+from penpine.attack.types import AttackType
 
 _BODY_KINDS = {"param", "form", "json", "multipart"}
 _PATH_KINDS = {"param", "form", "json", "multipart", "cookie"}
@@ -48,7 +49,7 @@ class StringContextRule(ClassificationRule):
 
     def match(self, point) -> set:
         if point.kind in _BODY_KINDS and not is_empty(point.value) and not is_numeric(point.value):
-            return {"sqli", "xss"}
+            return {AttackType.SQLI, AttackType.XSS}
         return set()
 
 
@@ -57,7 +58,7 @@ class NumericValueRule(ClassificationRule):
 
     def match(self, point) -> set:
         if point.kind in _BODY_KINDS | {"cookie"} and is_numeric(point.value):
-            return {"sqli", "idor"}
+            return {AttackType.SQLI, AttackType.IDOR}
         return set()
 
 
@@ -67,7 +68,7 @@ class IdentifierNameRule(ClassificationRule):
     def match(self, point) -> set:
         n = _name(point)
         if n in _ID_NAMES or n.endswith("_id"):
-            return {"idor", "sqli"}
+            return {AttackType.IDOR, AttackType.SQLI}
         return set()
 
 
@@ -75,14 +76,18 @@ class UrlValueRule(ClassificationRule):
     name = "url-value"
 
     def match(self, point) -> set:
-        return {"ssrf", "open-redirect"} if is_url(point.value) else set()
+        return {AttackType.SSRF, AttackType.OPEN_REDIRECT} if is_url(point.value) else set()
 
 
 class RedirectNameRule(ClassificationRule):
     name = "redirect-name"
 
     def match(self, point) -> set:
-        return {"open-redirect", "ssrf"} if _name(point) in _REDIRECT_NAMES else set()
+        return (
+            {AttackType.OPEN_REDIRECT, AttackType.SSRF}
+            if _name(point) in _REDIRECT_NAMES
+            else set()
+        )
 
 
 class FileNameOrPathRule(ClassificationRule):
@@ -92,7 +97,7 @@ class FileNameOrPathRule(ClassificationRule):
         if point.kind not in _PATH_KINDS:
             return set()
         if is_path(point.value) or _name(point) in _FILE_NAMES:
-            return {"path-traversal", "lfi"}
+            return {AttackType.PATH_TRAVERSAL, AttackType.LFI}
         return set()
 
 
@@ -100,7 +105,9 @@ class PathSegmentRule(ClassificationRule):
     name = "path-segment"
 
     def match(self, point) -> set:
-        return {"path-traversal", "idor"} if point.kind == "path-seg" else set()
+        return (
+            {AttackType.PATH_TRAVERSAL, AttackType.IDOR} if point.kind == "path-seg" else set()
+        )
 
 
 class HostHeaderRule(ClassificationRule):
@@ -108,7 +115,7 @@ class HostHeaderRule(ClassificationRule):
 
     def match(self, point) -> set:
         if point.kind == "header" and _name(point) == "host":
-            return {"host-header", "ssrf"}
+            return {AttackType.HOST_HEADER, AttackType.SSRF}
         return set()
 
 
@@ -117,7 +124,7 @@ class ProxyHeaderRule(ClassificationRule):
 
     def match(self, point) -> set:
         if point.kind == "header" and _name(point) in _PROXY_HEADERS:
-            return {"ssrf", "header-injection"}
+            return {AttackType.SSRF, AttackType.HEADER_INJECTION}
         return set()
 
 
@@ -125,7 +132,7 @@ class SearchNameRule(ClassificationRule):
     name = "search-name"
 
     def match(self, point) -> set:
-        return {"xss", "sqli"} if _name(point) in _SEARCH_NAMES else set()
+        return {AttackType.XSS, AttackType.SQLI} if _name(point) in _SEARCH_NAMES else set()
 
 
 DEFAULT_RULES = [
