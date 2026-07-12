@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from penpine.attack.types import AttackType
+
 
 @dataclass
 class FlowVariant:
@@ -15,7 +17,7 @@ class FlowVariant:
 
 
 class FlowAttackModule(ABC):
-    attack_type = None
+    attack_type: AttackType | None = None
     name = ""
 
     @abstractmethod
