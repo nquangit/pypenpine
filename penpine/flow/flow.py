@@ -97,7 +97,23 @@ class Flow:
         request, response, error, captured, elapsed_ms = await self._attempt(step, ctx, actor)
         outcome = StepOutcome(ctx=ctx, actor=actor, response=response, error=error)
 
-        triggered = step.recovery is not None and step.recovery.when(outcome)
+        if step.recovery is not None:
+            try:
+                triggered = step.recovery.when(outcome)
+            except Exception as exc:  # noqa: BLE001 - a raising recovery predicate fails the step, never leaks
+                return StepResult(
+                    step=step.name,
+                    actor=actor,
+                    status="failed",
+                    request=request,
+                    response=response,
+                    captured=captured,
+                    recovery_ran=False,
+                    error=error if error is not None else exc,
+                    elapsed_ms=elapsed_ms,
+                )
+        else:
+            triggered = False
 
         if not triggered:
             status = "failed" if error is not None else "ok"

@@ -234,7 +234,7 @@ flow = Flow(actor=user, steps=[
     Step("login", request=login_req,
          capture=[Extract("token", json="$.access_token")],
          recovery=Recovery(
-             when=lambda o: o.response.status_code == 409,   # needs activation
+             when=lambda o: o.response is not None and o.response.status_code == 409,
              do=activation, retry=True)),
     Step("transfer", request=Request.from_url("http://bank/xfer?tok={{token}}")),
 ])

@@ -112,3 +112,28 @@ async def test_continue_on_error_records_and_proceeds():
     result = await flow.run()
     assert [s.status for s in result] == ["ok", "failed", "ok"]
     assert isinstance(result.step("b").error, RuntimeError)
+
+
+async def test_callable_request_built_from_context():
+    actor = FakeActor(
+        script=[
+            response(b'{"id":"9"}', headers=b"Content-Type: application/json\r\n"),
+            response(b"ok"),
+        ]
+    )
+    flow = Flow(
+        actor=actor,
+        steps=[
+            Step(
+                "create",
+                request=Request.from_url("http://t/new"),
+                capture=[Extract("rid", json="$.id")],
+            ),
+            Step(
+                "use", request=lambda ctx: Request.from_url(f"http://t/item/{ctx.require('rid')}")
+            ),
+        ],
+    )
+    result = await flow.run()
+    assert result.step("use").status == "ok"
+    assert b"/item/9" in actor.sent[1].serialize()
