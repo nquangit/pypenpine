@@ -1,3 +1,6 @@
+import pytest
+
+from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.flow.modules.cross_user import CrossUserModule
 from penpine.attack.flow.runner import FlowRunner
 from penpine.attack.types import AttackType
@@ -67,7 +70,7 @@ async def test_variant_uses_seeded_owner_id_not_a_recreated_one():
             self.sent.append(req)
             if req.target == "/docs":  # create
                 counter["n"] += 1
-                body = ('{"id":"%d"}' % counter["n"]).encode()  # noqa: UP031
+                body = f'{{"id":"{counter["n"]}"}}'.encode()
                 return response(body, headers=b"Content-Type: application/json\r\n")
             return response(b"doc")  # access /docs/<id>
 
@@ -90,3 +93,13 @@ async def test_variant_uses_seeded_owner_id_not_a_recreated_one():
     assert any(req.target == "/docs/1" for req in bob.sent)
     assert all(req.target != "/docs" for req in bob.sent)  # bob never re-ran create
     assert report.summary()["found"] == 1
+
+
+async def test_cross_user_rejects_flow_whose_actor_is_not_the_owner():
+    alice = FakeActor(name="alice")
+    bob = FakeActor(name="bob")
+    carol = FakeActor(name="carol")
+    flow = Flow(actor=carol, steps=[Step("access", request=Request.from_url("http://t/x"))])
+    module = CrossUserModule(owner=alice, attacker=bob, access_steps=["access"])
+    with pytest.raises(AttackConfigError):
+        await FlowRunner().run(flow, module=module)

@@ -9,6 +9,16 @@ from penpine.flow.exceptions import StepError
 
 
 class FlowRunner:
+    """Runs a base flow's baseline, then a module's variants, then validates each.
+
+    Variants share the base flow's actor(s). Concurrent variant runs
+    (max_concurrency > 1) interleave every real `await actor.send(...)`, so
+    against a STATEFUL actor (a SessionManager/Engine holding cookies,
+    tokens, or a live connection) they can clobber each other's session
+    state. Use an isolatable/stateless actor, or set max_concurrency=1, for
+    stateful actors.
+    """
+
     def __init__(self, *, max_concurrency=10):
         self._max_concurrency = max_concurrency
 

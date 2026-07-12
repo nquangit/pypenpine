@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.flow.module import FlowAttackModule, FlowVariant
 from penpine.attack.flow.mutators import drop_step, seed_context, swap_actor
 from penpine.attack.flow.results import FlowFinding
@@ -23,6 +24,11 @@ class CrossUserModule(FlowAttackModule):
         self._access_steps = access_steps
 
     def mutate(self, base_flow, baseline_result, targets):
+        if base_flow.actor is not None and base_flow.actor is not self._owner:
+            raise AttackConfigError(
+                "CrossUserModule: the base flow's default actor must be the owner "
+                f"(got {base_flow.actor!r}, expected {self._owner!r})"
+            )
         access = (
             list(targets)
             if targets is not None

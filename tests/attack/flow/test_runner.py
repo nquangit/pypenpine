@@ -60,3 +60,23 @@ async def test_runner_never_raises_on_validator_error():
 def test_run_sync_parity():
     report = FlowRunner().run_sync(_flow(), module=_StubModule(n_variants=1, find_on=["v0"]))
     assert report.summary() == {"variants": 1, "failed": 0, "found": 1}
+
+
+async def test_runner_never_raises_on_variant_run_error():
+    class _RaisingFlow:
+        async def run(self):
+            raise RuntimeError("variant boom")
+
+    class _Mod(FlowAttackModule):
+        attack_type = AttackType.BROKEN_ACCESS
+        name = "raiser"
+
+        def mutate(self, base_flow, baseline_result, targets):
+            yield FlowVariant(flow=_RaisingFlow(), target="v0")
+
+        def validate(self, variant, variant_result, baseline_result):
+            return None
+
+    report = await FlowRunner().run(_flow(), module=_Mod())
+    assert report.summary()["failed"] == 1
+    assert isinstance(report.errors[0].error, RuntimeError)
