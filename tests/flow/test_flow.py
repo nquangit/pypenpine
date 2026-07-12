@@ -74,6 +74,27 @@ async def test_fail_fast_raises_step_error_with_partial_result():
     assert [s.status for s in err.result] == ["ok", "failed"]  # third never ran
 
 
+async def test_raising_guard_becomes_failed_step_with_partial_result():
+    def boom_guard(ctx):
+        raise ValueError("guard blew up")
+
+    actor = FakeActor(script=[response(b"ok")])
+    flow = Flow(
+        actor=actor,
+        steps=[
+            Step("a", request=Request.from_url("http://t/a")),
+            Step("b", request=Request.from_url("http://t/b"), guard=boom_guard),
+            Step("c", request=Request.from_url("http://t/c")),
+        ],
+    )
+    with pytest.raises(StepError) as ei:
+        await flow.run()
+    assert ei.value.name == "b"
+    assert isinstance(ei.value.result.step("b").error, ValueError)
+    assert [s.status for s in ei.value.result] == ["ok", "failed"]  # c never ran
+    assert len(actor.sent) == 1  # only step a sent; guard failed before b's send
+
+
 async def test_continue_on_error_records_and_proceeds():
     def boom(request):
         raise RuntimeError("nope")

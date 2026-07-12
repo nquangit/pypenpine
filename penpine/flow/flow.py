@@ -65,8 +65,13 @@ class Flow:
         if actor is None:
             raise FlowError(f"step {step.name!r} has no actor to send with")
 
-        if step.guard is not None and not step.guard(ctx):
-            return StepResult(step=step.name, actor=actor, status="skipped")
+        if step.guard is not None:
+            try:
+                should_run = step.guard(ctx)
+            except Exception as exc:  # noqa: BLE001 - a raising guard fails the step, never leaks
+                return StepResult(step=step.name, actor=actor, status="failed", error=exc)
+            if not should_run:
+                return StepResult(step=step.name, actor=actor, status="skipped")
 
         request, response, error, captured, elapsed_ms = await self._attempt(step, ctx, actor)
         status = "failed" if error is not None else "ok"
