@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import IntEnum
 
+from penpine.attack.types import AttackType
+
 _REQUEST_LINE_KINDS = {"method", "target", "version"}
 
 
@@ -36,7 +38,7 @@ class TestCase:
     __test__ = False  # not a pytest test class
     point: InjectionPoint
     payload: Payload
-    attack_type: str
+    attack_type: AttackType
     request: object | None = None
     marker: str | None = None
     meta: dict = field(default_factory=dict)
@@ -50,7 +52,7 @@ class Confidence(IntEnum):
 
 @dataclass
 class Finding:
-    attack_type: str
+    attack_type: AttackType
     point: InjectionPoint
     payload: Payload
     confidence: Confidence
