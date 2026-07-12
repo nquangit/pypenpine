@@ -252,6 +252,27 @@ unrecovered step raises `StepError` with the partial `FlowResult` attached;
 pass `continue_on_error=True` to record errors and keep going. Session-expiry
 re-login is handled underneath by the L2 `SessionManager`, not the flow.
 
+### Attacking flows
+
+Flow-structural attacks target the *shape* of a scenario, not injection points.
+A `FlowRunner` runs the base flow as a baseline, mutates it, runs each variant,
+and validates the result — you invoke it explicitly (a `Flow` never attacks on
+its own).
+
+```python
+from penpine import FlowRunner
+from penpine.attack.flow import SkipStepModule, CrossUserModule
+
+# Broken access control: does dropping a step still reach the protected outcome?
+report = FlowRunner().run_sync(flow, module=SkipStepModule())   # goal = last step
+for f in report.findings:
+    print(f.confidence.name, f.target, "->", f.evidence)
+
+# Cross-user (IDOR): can bob reach a resource alice created?
+idor = CrossUserModule(owner=alice, attacker=bob, access_steps=["access"])
+report = FlowRunner().run_sync(alice_flow, module=idor)
+```
+
 ## L4 — Analyze, attack, validate
 
 ### Inspect what an attack would target
