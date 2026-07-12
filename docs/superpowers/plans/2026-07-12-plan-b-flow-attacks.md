@@ -939,7 +939,7 @@ Create `penpine/attack/flow/modules/cross_user.py`:
 from __future__ import annotations
 
 from penpine.attack.flow.module import FlowAttackModule, FlowVariant
-from penpine.attack.flow.mutators import seed_context, swap_actor
+from penpine.attack.flow.mutators import drop_step, seed_context, swap_actor
 from penpine.attack.flow.results import FlowFinding
 from penpine.attack.models import Confidence
 from penpine.attack.types import AttackType
@@ -964,7 +964,15 @@ class CrossUserModule(FlowAttackModule):
             if targets is not None
             else (self._access_steps or self._infer_access_steps(base_flow, baseline_result))
         )
-        variant_flow = swap_actor(base_flow, access, self._attacker)
+        keep = set(access)
+        # Keep ONLY the access steps. Dropping the preceding (capturing) steps is
+        # essential: otherwise a capturing step re-runs under the owner actor in the
+        # variant and overwrites the owner's captured values we seed below (and, on a
+        # live target, would re-execute a possibly side-effecting step per variant).
+        variant_flow = base_flow
+        for name in [s.name for s in base_flow.steps if s.name not in keep]:
+            variant_flow = drop_step(variant_flow, name)
+        variant_flow = swap_actor(variant_flow, access, self._attacker)
         variant_flow = seed_context(variant_flow, baseline_result.context)
         yield FlowVariant(
             flow=variant_flow,
