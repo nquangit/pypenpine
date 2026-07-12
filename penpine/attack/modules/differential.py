@@ -15,7 +15,7 @@ class DifferentialModule:
 
     name = "differential"
     applies_to: tuple = ()
-    attack_type = None
+    attack_type: AttackType | None = None
 
     def applies(self, kind: str) -> bool:
         return not self.applies_to or kind in self.applies_to

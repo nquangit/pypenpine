@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from penpine.attack.generator import PayloadGenerator
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 
@@ -13,7 +14,7 @@ class AttackModule:
         generator: PayloadGenerator,
         validator: Validator,
         *,
-        attack_type=None,
+        attack_type: AttackType | None = None,
         applies_to: tuple = (),
         description: str = "",
     ):

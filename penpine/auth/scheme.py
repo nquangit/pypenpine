@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 
+from penpine.auth.exceptions import AuthError
 from penpine.auth.session import Session
 from penpine.core.cookies import parse_cookie_header
 from penpine.core.message import Request
@@ -40,6 +41,8 @@ class HeaderAuth(AuthScheme):
 
     def apply(self, request: Request, session: Session) -> Request:
         value = session.data[self._source] if self._source else session.token
+        if value is None:
+            raise AuthError(f"HeaderAuth({self._name!r}): no value to apply (session has no token)")
         return request.set_header(self._name, value)
 
 
