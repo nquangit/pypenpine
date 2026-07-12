@@ -215,6 +215,43 @@ probe = bob.render(Request.from_url("https://target/doc/{{new_id}}"))
 print(bob.send_sync(probe).status_code)           # 200 == IDOR
 ```
 
+## Flows — multi-step scenarios
+
+Chain requests into an ordered scenario with per-step guards and step-local
+recovery. Steps share one flow-scoped context, so one actor's captured data
+templates into another's request.
+
+```python
+from penpine import Flow, Step
+from penpine.data.extract import Extract
+from penpine.flow import Recovery
+
+activation = Flow(actor=user, steps=[
+    Step("activate", request=activate_req),
+])
+
+flow = Flow(actor=user, steps=[
+    Step("login", request=login_req,
+         capture=[Extract("token", json="$.access_token")],
+         recovery=Recovery(
+             when=lambda o: o.response.status_code == 409,   # needs activation
+             do=activation, retry=True)),
+    Step("transfer", request=Request.from_url("http://bank/xfer?tok={{token}}")),
+])
+
+result = flow.run_sync()
+print(result.summary())              # {'ran': 2, 'skipped': 0, 'recovered': 0, 'failed': 0}
+for step in result:
+    print(step.step, step.status)
+```
+
+A step may name its own `actor` (any `Identity`/`SessionManager`/`Engine`), so a
+flow can drive multiple identities against one shared context — the basis for
+cross-user (IDOR) scenarios. By default a flow **fails fast**: the first
+unrecovered step raises `StepError` with the partial `FlowResult` attached;
+pass `continue_on_error=True` to record errors and keep going. Session-expiry
+re-login is handled underneath by the L2 `SessionManager`, not the flow.
+
 ## L4 — Analyze, attack, validate
 
 ### Inspect what an attack would target
