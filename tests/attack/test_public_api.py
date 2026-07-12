@@ -50,6 +50,7 @@ def test_runner_results_exported():
 def test_attacktype_is_exported():
     import penpine.attack as A
     from penpine.attack.types import AttackType
+
     assert A.AttackType is AttackType
     assert "AttackType" in A.__all__
 
@@ -57,4 +58,5 @@ def test_attacktype_is_exported():
 def test_attacktype_top_level():
     import penpine
     from penpine.attack.types import AttackType
+
     assert penpine.AttackType is AttackType

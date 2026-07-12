@@ -6,8 +6,16 @@ from penpine.attack.types import AttackType
 
 def test_members_cover_all_rule_tags_plus_broken_access():
     expected = {
-        "sqli", "xss", "idor", "ssrf", "open-redirect",
-        "path-traversal", "lfi", "host-header", "header-injection", "broken-access",
+        "sqli",
+        "xss",
+        "idor",
+        "ssrf",
+        "open-redirect",
+        "path-traversal",
+        "lfi",
+        "host-header",
+        "header-injection",
+        "broken-access",
     }
     assert {t.value for t in AttackType} == expected
 

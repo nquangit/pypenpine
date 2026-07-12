@@ -19,9 +19,7 @@ def test_analyze_tags_points_by_kind_name_and_value():
     a = analyze(Request.from_raw(CRAFTED))
     assert {AttackType.IDOR, AttackType.SQLI} <= set(_find(a, "param:id").attack_types)
     assert AttackType.XSS in _find(a, "param:q").attack_types
-    assert {AttackType.OPEN_REDIRECT, AttackType.SSRF} <= set(
-        _find(a, "param:next").attack_types
-    )
+    assert {AttackType.OPEN_REDIRECT, AttackType.SSRF} <= set(_find(a, "param:next").attack_types)
     assert AttackType.HOST_HEADER in _find(a, "header:Host").attack_types
     assert AttackType.HEADER_INJECTION in _find(a, "header:User-Agent").attack_types
     assert AttackType.PATH_TRAVERSAL in _find(a, "path-seg:1").attack_types
@@ -54,10 +52,7 @@ def test_custom_rule_applied():
             return {AttackType.BROKEN_ACCESS} if point.kind == "param" else set()
 
     a = analyze(Request.from_url("http://h/?a=1"), rules=[Tagger()])
-    assert (
-        AttackType.BROKEN_ACCESS
-        in next(p for p in a.points if p.expr == "param:a").attack_types
-    )
+    assert AttackType.BROKEN_ACCESS in next(p for p in a.points if p.expr == "param:a").attack_types
 
 
 def test_attack_types_sorted_for_determinism():

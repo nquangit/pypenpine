@@ -105,9 +105,7 @@ class PathSegmentRule(ClassificationRule):
     name = "path-segment"
 
     def match(self, point) -> set:
-        return (
-            {AttackType.PATH_TRAVERSAL, AttackType.IDOR} if point.kind == "path-seg" else set()
-        )
+        return {AttackType.PATH_TRAVERSAL, AttackType.IDOR} if point.kind == "path-seg" else set()
 
 
 class HostHeaderRule(ClassificationRule):
