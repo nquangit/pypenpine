@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import time
 
 from penpine.data.capture import capture
@@ -11,6 +12,21 @@ from penpine.data.template import build_mapping, render
 from penpine.flow.exceptions import FlowError, StepError
 from penpine.flow.results import FlowResult, StepResult
 from penpine.flow.step import StepOutcome
+
+
+class FlowContext:
+    """Passed to an escape-hatch step's `action` callable."""
+
+    def __init__(self, ctx, actor):
+        self.ctx = ctx
+        self.actor = actor
+
+    async def send(self, request, *, actor=None):
+        target = actor or self.actor
+        rendered = render(
+            request, build_mapping(context=self.ctx, data=getattr(target, "data", None))
+        )
+        return await target.send(rendered)
 
 
 class Flow:
@@ -51,9 +67,13 @@ class Flow:
         request = response = error = None
         captured = []
         try:
-            raw = step.request(ctx) if callable(step.request) else step.request
-            request = render(raw, build_mapping(context=ctx, data=getattr(actor, "data", None)))
-            response = await actor.send(request)
+            if step.action is not None:
+                maybe = step.action(FlowContext(ctx, actor))
+                response = await maybe if inspect.isawaitable(maybe) else maybe
+            else:
+                raw = step.request(ctx) if callable(step.request) else step.request
+                request = render(raw, build_mapping(context=ctx, data=getattr(actor, "data", None)))
+                response = await actor.send(request)
             if step.capture and response is not None:
                 captured = list(capture(ctx, response, step.capture).keys())
         except Exception as exc:  # noqa: BLE001 - recorded on the StepResult, never leaked mid-step
@@ -63,7 +83,7 @@ class Flow:
 
     async def _run_step(self, step, ctx, default_actor, *, allow_recovery=True):
         actor = step.actor or default_actor
-        if actor is None:
+        if actor is None and step.action is None:
             raise FlowError(f"step {step.name!r} has no actor to send with")
 
         if step.guard is not None:
