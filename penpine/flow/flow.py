@@ -10,6 +10,7 @@ from penpine.data.context import Context
 from penpine.data.template import build_mapping, render
 from penpine.flow.exceptions import FlowError, StepError
 from penpine.flow.results import FlowResult, StepResult
+from penpine.flow.step import StepOutcome
 
 
 class Flow:
@@ -60,7 +61,7 @@ class Flow:
         elapsed_ms = (time.perf_counter() - start) * 1000
         return request, response, error, captured, elapsed_ms
 
-    async def _run_step(self, step, ctx, default_actor):
+    async def _run_step(self, step, ctx, default_actor, *, allow_recovery=True):
         actor = step.actor or default_actor
         if actor is None:
             raise FlowError(f"step {step.name!r} has no actor to send with")
@@ -74,15 +75,71 @@ class Flow:
                 return StepResult(step=step.name, actor=actor, status="skipped")
 
         request, response, error, captured, elapsed_ms = await self._attempt(step, ctx, actor)
-        status = "failed" if error is not None else "ok"
+        outcome = StepOutcome(ctx=ctx, actor=actor, response=response, error=error)
+
+        triggered = step.recovery is not None and step.recovery.when(outcome)
+
+        if not triggered:
+            status = "failed" if error is not None else "ok"
+            return StepResult(
+                step=step.name,
+                actor=actor,
+                status=status,
+                request=request,
+                response=response,
+                captured=captured,
+                recovery_ran=False,
+                error=error,
+                elapsed_ms=elapsed_ms,
+            )
+
+        # A recovery condition fired.
+        if not allow_recovery:
+            # Already inside a retry — cannot recover again.
+            return StepResult(
+                step=step.name,
+                actor=actor,
+                status="failed",
+                request=request,
+                response=response,
+                captured=captured,
+                recovery_ran=True,
+                error=error,
+                elapsed_ms=elapsed_ms,
+            )
+
+        try:
+            # Run the recovery sub-flow with ITS OWN default actor (falling back to
+            # the parent's), while sharing the parent's context.
+            await step.recovery.do._execute(ctx, step.recovery.do._actor or default_actor)
+        except FlowError:
+            return StepResult(
+                step=step.name,
+                actor=actor,
+                status="failed",
+                request=request,
+                response=response,
+                captured=captured,
+                recovery_ran=True,
+                error=error,
+                elapsed_ms=elapsed_ms,
+            )
+
+        if step.recovery.retry:
+            retry = await self._run_step(step, ctx, default_actor, allow_recovery=False)
+            retry.recovery_ran = True
+            if retry.status == "ok":
+                retry.status = "recovered"
+            return retry
+
         return StepResult(
             step=step.name,
             actor=actor,
-            status=status,
+            status="recovered",
             request=request,
             response=response,
             captured=captured,
-            recovery_ran=False,
+            recovery_ran=True,
             error=error,
             elapsed_ms=elapsed_ms,
         )
