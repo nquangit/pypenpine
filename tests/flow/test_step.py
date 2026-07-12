@@ -18,7 +18,9 @@ def test_step_stores_fields():
 
 
 def test_step_action_variant():
-    fn = lambda fc: None
+    def fn(fc):
+        return None
+
     s = Step("probe", action=fn)
     assert s.action is fn
     assert s.request is None

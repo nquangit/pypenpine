@@ -37,9 +37,7 @@ class Step:
         recovery=None,
     ):
         if (request is None) == (action is None):
-            raise FlowError(
-                f"step {name!r} requires exactly one of `request` or `action`"
-            )
+            raise FlowError(f"step {name!r} requires exactly one of `request` or `action`")
         self.name = name
         self.actor = actor
         self.request = request

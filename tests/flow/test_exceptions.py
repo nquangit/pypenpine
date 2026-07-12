@@ -1,5 +1,3 @@
-import pytest
-
 from penpine.exceptions import PenpineError
 from penpine.flow.exceptions import FlowError, StepError
 
