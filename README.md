@@ -222,7 +222,7 @@ recovery. Steps share one flow-scoped context, so one actor's captured data
 templates into another's request.
 
 ```python
-from penpine import Flow, Step
+from penpine import Flow, Step, Request
 from penpine.data.extract import Extract
 from penpine.flow import Recovery
 
