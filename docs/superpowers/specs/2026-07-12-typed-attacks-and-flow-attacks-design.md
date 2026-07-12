@@ -72,16 +72,22 @@ the current analyzer tags plus one new category for skip-a-step:
 class AttackType(Enum):
     SQLI = "sqli"
     XSS = "xss"
-    PATH_TRAVERSAL = "path-traversal"
-    OPEN_REDIRECT = "open-redirect"
-    SSRF = "ssrf"
     IDOR = "idor"
+    SSRF = "ssrf"
+    OPEN_REDIRECT = "open-redirect"
+    PATH_TRAVERSAL = "path-traversal"
+    LFI = "lfi"
+    HOST_HEADER = "host-header"
     HEADER_INJECTION = "header-injection"
     BROKEN_ACCESS = "broken-access"   # new, for skip-a-step (Plan B)
 
     @classmethod
     def from_str(cls, value: str) -> "AttackType": ...  # coercion at the edge
 ```
+
+The full member set is chosen to cover **every** tag the current analyzer rules
+emit (`sqli, xss, idor, ssrf, open-redirect, path-traversal, lfi, host-header,
+header-injection`) plus the new `broken-access`.
 
 The string values are retained **only** as the serialized form and for the
 `from_str` coercion helper used at CLI/config/report boundaries. The library API
