@@ -9,6 +9,7 @@ from penpine.attack.generator import PayloadGenerator
 from penpine.attack.models import Confidence, Finding, Payload, TestCase
 from penpine.attack.module import AttackModule
 from penpine.attack.modules._common import body_text, search_signatures
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 SQLI_PAYLOADS = ["'", '"', "')", "';", "' OR '1'='1", "' OR 1=1-- -", "\\"]
@@ -48,7 +49,9 @@ class SqliGenerator(PayloadGenerator):
             values += self._numeric
         for value in values:
             yield TestCase(
-                point=point, payload=Payload(value, technique="error-based"), attack_type="sqli"
+                point=point,
+                payload=Payload(value, technique="error-based"),
+                attack_type=AttackType.SQLI,
             )
 
 
@@ -65,7 +68,7 @@ class SqliValidator(Validator):
         if baseline is not None and search_signatures(body_text(baseline), self._signatures):
             return None
         return Finding(
-            "sqli",
+            AttackType.SQLI,
             test_case.point,
             test_case.payload,
             Confidence.HIGH,
@@ -79,6 +82,7 @@ SQLI_MODULE = AttackModule(
     "sqli",
     SqliGenerator(),
     SqliValidator(),
+    attack_type=AttackType.SQLI,
     applies_to=("param", "form", "json", "multipart", "cookie"),
     description="error-based SQL injection",
 )

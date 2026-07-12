@@ -1,5 +1,6 @@
 from penpine.attack.models import Confidence, InjectionPoint
 from penpine.attack.modules.differential import TIME_SQLI_MODULE, TimeSqliModule
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 
@@ -49,7 +50,7 @@ async def test_time_module_flags_confirmed_delay():
     point = InjectionPoint(expr="param:q", kind="param", name="q", value="1")
     finding = await module.probe(point, Request.from_url("http://h/s?q=1"), sender)
     assert finding is not None
-    assert finding.attack_type == "sqli-time"
+    assert finding.attack_type == AttackType.SQLI
     assert finding.confidence == Confidence.HIGH
 
 
@@ -87,5 +88,5 @@ async def test_time_module_no_finding_when_uniformly_slow():
 
 def test_time_module_metadata():
     assert TIME_SQLI_MODULE.name == "sqli-time"
-    assert TIME_SQLI_MODULE.select_attack_type == "sqli"
+    assert TIME_SQLI_MODULE.attack_type == AttackType.SQLI
     assert TIME_SQLI_MODULE.applies("param") is True

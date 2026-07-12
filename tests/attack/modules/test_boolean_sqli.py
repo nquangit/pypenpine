@@ -4,6 +4,7 @@ from penpine.attack.modules.differential import (
     BooleanSqliModule,
     _similar,
 )
+from penpine.attack.types import AttackType
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 
@@ -42,7 +43,7 @@ async def test_boolean_module_flags_injectable_point():
     req = Request.from_url("http://h/s?q=hi")
     finding = await module.probe(point, req, _BoolSender())
     assert finding is not None
-    assert finding.attack_type == "sqli-boolean"
+    assert finding.attack_type == AttackType.SQLI
     assert finding.confidence == Confidence.HIGH
     assert finding.response is not None
 
@@ -61,6 +62,6 @@ async def test_boolean_module_no_finding_when_uniform():
 
 def test_module_metadata():
     assert BOOLEAN_SQLI_MODULE.name == "sqli-boolean"
-    assert BOOLEAN_SQLI_MODULE.select_attack_type == "sqli"
+    assert BOOLEAN_SQLI_MODULE.attack_type == AttackType.SQLI
     assert BOOLEAN_SQLI_MODULE.applies("param") is True
     assert BOOLEAN_SQLI_MODULE.applies("header") is False

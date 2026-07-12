@@ -1,6 +1,7 @@
 from penpine.attack.generator import PayloadGenerator
 from penpine.attack.models import Confidence, Finding, InjectionPoint, Payload, TestCase
 from penpine.attack.module import AttackModule
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 
@@ -41,3 +42,13 @@ def test_metadata():
     assert m.name == "t"
     assert m.applies_to == ("param",)
     assert m.description == "desc"
+
+
+def test_attack_type_defaults_to_none():
+    assert AttackModule("t", G(), V()).attack_type is None
+
+
+def test_attack_module_stores_attack_type():
+    from penpine.attack.modules.sqli import SQLI_MODULE
+
+    assert SQLI_MODULE.attack_type is AttackType.SQLI

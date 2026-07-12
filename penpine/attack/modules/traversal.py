@@ -8,6 +8,7 @@ from penpine.attack.generator import PayloadGenerator
 from penpine.attack.models import Confidence, Finding, Payload, TestCase
 from penpine.attack.module import AttackModule
 from penpine.attack.modules._common import body_text, search_signatures
+from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
 
 TRAVERSAL_PAYLOADS = [
@@ -36,7 +37,9 @@ class TraversalGenerator(PayloadGenerator):
     def generate(self, point, request):
         for value in self._payloads:
             yield TestCase(
-                point=point, payload=Payload(value, technique="lfi"), attack_type="path-traversal"
+                point=point,
+                payload=Payload(value, technique="lfi"),
+                attack_type=AttackType.PATH_TRAVERSAL,
             )
 
 
@@ -53,7 +56,7 @@ class TraversalValidator(Validator):
         if baseline is not None and search_signatures(body_text(baseline), self._signatures):
             return None
         return Finding(
-            "path-traversal",
+            AttackType.PATH_TRAVERSAL,
             test_case.point,
             test_case.payload,
             Confidence.HIGH,
@@ -67,6 +70,7 @@ TRAVERSAL_MODULE = AttackModule(
     "path-traversal",
     TraversalGenerator(),
     TraversalValidator(),
+    attack_type=AttackType.PATH_TRAVERSAL,
     applies_to=("param", "form", "json", "multipart", "path-seg", "cookie"),
     description="path traversal / LFI",
 )

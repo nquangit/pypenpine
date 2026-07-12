@@ -13,12 +13,14 @@ class AttackModule:
         generator: PayloadGenerator,
         validator: Validator,
         *,
+        attack_type=None,
         applies_to: tuple = (),
         description: str = "",
     ):
         self.name = name
         self.generator = generator
         self.validator = validator
+        self.attack_type = attack_type
         self.applies_to = tuple(applies_to)
         self.description = description
 

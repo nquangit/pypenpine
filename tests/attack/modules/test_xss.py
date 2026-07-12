@@ -5,6 +5,7 @@ from penpine.attack.modules.xss import (
     XssGenerator,
     XssValidator,
 )
+from penpine.attack.types import AttackType
 from penpine.core.parse.http_parser import parse_response
 
 
@@ -23,13 +24,13 @@ def test_generator_unique_markers_embedded():
     assert all(m and m.startswith("PXSS_") for m in markers)
     assert len(set(markers)) == len(markers)
     assert all(c.marker in c.payload.value for c in cases)
-    assert all(c.attack_type == "xss" for c in cases)
+    assert all(c.attack_type == AttackType.XSS for c in cases)
 
 
 def test_validator_detects_verbatim_reflection():
     tc = next(iter(XssGenerator().generate(pt(), None)))
     f = XssValidator().evaluate(tc, resp(tc.payload.value.encode()), None)
-    assert f is not None and f.attack_type == "xss" and f.confidence.name == "HIGH"
+    assert f is not None and f.attack_type == AttackType.XSS and f.confidence.name == "HIGH"
 
 
 def test_validator_escaped_reflection_returns_none():
