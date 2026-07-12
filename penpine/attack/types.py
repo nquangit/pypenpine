@@ -20,7 +20,7 @@ class AttackType(Enum):
     BROKEN_ACCESS = "broken-access"
 
     @classmethod
-    def from_str(cls, value: str) -> "AttackType":
+    def from_str(cls, value: str) -> AttackType:
         """Coerce a serialized string to an AttackType (CLI/config/report edge only)."""
         try:
             return cls(value)
