@@ -274,10 +274,10 @@ git commit --no-gpg-sign -m "refactor(attack): analyzer tags points with AttackT
 **Interfaces:**
 - Consumes: `AttackType`.
 - Produces:
-  - `AttackModule.__init__(..., attack_type: AttackType, ...)` — new required-ish field (keyword with no default is fine since all call sites are updated here). Stored as `self.attack_type`.
-  - `DifferentialModule.attack_type: AttackType` class attribute; `select_attack_type` is REMOVED (unified into `attack_type`).
+  - `AttackModule.__init__(..., attack_type=None, ...)` — new keyword field defaulting to `None`. It MUST be optional: the `ECHO_MODULE` example (`penpine/attack/example.py`), the `custom_module.py` CLI template, and test fakes all construct `AttackModule` without a category, and a categoryless module simply isn't category-selectable. Only the categorized built-ins set it. Stored as `self.attack_type`.
+  - `DifferentialModule.attack_type: AttackType` class attribute (base default `None`); `select_attack_type` is REMOVED (unified into `attack_type`).
   - Each built-in module declares its `attack_type`. Findings/TestCases use `AttackType`.
-  - `registry.by_type(attack_type: AttackType, *, signature_only: bool = False) -> list` — registered modules whose `attack_type == attack_type`, optionally excluding `probe`-based ones.
+  - `registry.by_type(attack_type: AttackType, *, signature_only: bool = False) -> list` — registered modules whose `attack_type == attack_type`, optionally excluding `probe`-based ones. Modules with `attack_type is None` never match.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -317,7 +317,7 @@ Expected: FAIL — `registry.by_type` missing; `AttackModule` has no `attack_typ
 
 - [ ] **Step 3: Add `attack_type` to `AttackModule`**
 
-In `penpine/attack/module.py`, add `attack_type` to `__init__` (place it before `generator` so call sites read naturally, OR keyword — choose keyword to avoid reordering positional call sites). Use keyword-only:
+In `penpine/attack/module.py`, add a keyword-only `attack_type=None` to `__init__` (optional, so existing categoryless construction sites — `example.py`, the `custom_module.py` template, test fakes — keep working unchanged):
 
 ```python
     def __init__(
@@ -326,7 +326,7 @@ In `penpine/attack/module.py`, add `attack_type` to `__init__` (place it before 
         generator: PayloadGenerator,
         validator: Validator,
         *,
-        attack_type,
+        attack_type=None,
         applies_to: tuple = (),
         description: str = "",
     ):
