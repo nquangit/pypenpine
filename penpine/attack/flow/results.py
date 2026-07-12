@@ -7,12 +7,12 @@ from dataclasses import dataclass, field
 
 @dataclass
 class FlowFinding:
-    attack_type: object          # AttackType
+    attack_type: object  # AttackType
     target: str
-    confidence: object           # Confidence
+    confidence: object  # Confidence
     evidence: str
-    baseline_result: object      # FlowResult
-    variant_result: object       # FlowResult
+    baseline_result: object  # FlowResult
+    variant_result: object  # FlowResult
 
 
 @dataclass

@@ -38,7 +38,7 @@ def test_swap_actor_replaces_actor_on_named_steps_only():
     bob = FakeActor(name="bob")
     variant = swap_actor(base, ["act", "confirm"], bob)
     names_to_actor = {s.name: s.actor for s in variant.steps}
-    assert names_to_actor["login"] is None          # untouched (used flow default)
+    assert names_to_actor["login"] is None  # untouched (used flow default)
     assert names_to_actor["act"] is bob
     assert names_to_actor["confirm"] is bob
     # base steps unchanged
