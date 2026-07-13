@@ -82,7 +82,35 @@ async def test_run_single_module_keeps_its_attack_type():
     req = Request.from_url("http://t/item?q=hello")
     report = await Runner(sender=sender).run(req, module=[SQLI_MODULE])  # list of one
     assert report.attack_type is AttackType.SQLI
+
+
+async def test_run_bare_class_needing_args_raises_config_error():
+    class _NeedsArg:
+        def __init__(self, required):  # required constructor arg
+            self.required = required
+
+    with pytest.raises(AttackConfigError):
+        await Runner().run(Request.from_url("http://t/x"), module=_NeedsArg)
+
+
+async def test_run_does_not_mask_a_typeerror_from_module_init_body():
+    class _BadInit:
+        attack_type = AttackType.SQLI
+        name = "bad"
+
+        def __init__(self):
+            raise TypeError("genuine bug in __init__")
+
+        def applies(self, kind):
+            return True
+
+    # a TypeError from the module's own __init__ body must propagate, NOT be
+    # relabeled as an AttackConfigError ("needs constructor arguments").
+    with pytest.raises(TypeError, match="genuine bug"):
+        await Runner().run(Request.from_url("http://t/x"), module=_BadInit)
 ```
+
+(`pytest` is already imported in this file.)
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -91,19 +119,20 @@ Expected: FAIL — `_resolve_modules` treats a list as a single object (`isinsta
 
 - [ ] **Step 3: Rewrite `_resolve_modules` + the `attack_type` line**
 
-In `penpine/attack/runner.py`, replace `_resolve_modules` with:
+In `penpine/attack/runner.py`, add `import inspect` to the stdlib imports, then replace `_resolve_modules` with (note `_instantiate` validates constructability with `inspect.signature(...).bind()` BEFORE calling `m()`, so a `TypeError` raised inside a module's own `__init__` body propagates unmasked instead of being mislabeled):
 
 ```python
     def _instantiate(self, m):
-        if isinstance(m, type):
-            try:
-                return m()
-            except TypeError as exc:
-                raise AttackConfigError(
-                    f"module class {m.__name__} needs constructor arguments; "
-                    f"pass an instance instead"
-                ) from exc
-        return m
+        if not isinstance(m, type):
+            return m
+        try:
+            inspect.signature(m).bind()
+        except TypeError as exc:
+            raise AttackConfigError(
+                f"module class {m.__name__} needs constructor arguments; "
+                f"pass an instance instead"
+            ) from exc
+        return m()
 
     def _resolve_modules(self, attack, module):
         modules = []
@@ -123,7 +152,7 @@ Then in `run()`, replace the `attack_type = (...)` assignment with:
         attack_type = modules[0].attack_type if len(modules) == 1 else None
 ```
 
-Update the `attack` parameter annotation to `attack=None` (drop the now-inaccurate `AttackType | None`; a prose note in the docstring is enough) and adjust the docstring's first paragraph to say `attack` accepts an `AttackType` or a list of them and `module` accepts a module/class or a list of them.
+**Widen** the `attack` parameter annotation to `attack: AttackType | list[AttackType] | None = None` (the package ships `py.typed`, so keep public annotations complete — do NOT drop it to a bare `attack=None`). Adjust the docstring's first paragraph to say `attack` accepts an `AttackType` or a list of them and `module` accepts a module/class or a list of them.
 
 - [ ] **Step 4: Run the tests**
 
@@ -222,6 +251,7 @@ Replace the body of `penpine/attack/flow/runner.py` from the imports through `ru
 from __future__ import annotations
 
 import asyncio
+import inspect
 
 from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.flow.results import FlowAttempt, FlowReport
@@ -246,16 +276,19 @@ class FlowRunner:
         items = module if isinstance(module, (list, tuple)) else [module]
         out = []
         for m in items:
-            if isinstance(m, type):
-                try:
-                    out.append(m())
-                except TypeError as exc:
-                    raise AttackConfigError(
-                        f"module class {m.__name__} needs constructor arguments; "
-                        f"pass an instance instead"
-                    ) from exc
-            else:
+            if not isinstance(m, type):
                 out.append(m)
+                continue
+            # Validate no-arg constructability BEFORE instantiating, so a TypeError
+            # raised inside the module's own __init__ body propagates unmasked.
+            try:
+                inspect.signature(m).bind()
+            except TypeError as exc:
+                raise AttackConfigError(
+                    f"module class {m.__name__} needs constructor arguments; "
+                    f"pass an instance instead"
+                ) from exc
+            out.append(m())
         return out
 
     async def _run_to_result(self, flow):
