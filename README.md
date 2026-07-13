@@ -11,13 +11,13 @@ request, generate the right payloads, insert them, send them concurrently, and
 validate the responses into findings.
 
 ```python
-from penpine import Runner, Request
+from penpine import Runner, Request, AttackType
 from penpine.attack.modules import register_builtins
 
 register_builtins()
 report = Runner().run_sync(
     Request.from_url("http://target/item?id=7&q=hello"),
-    attack="sqli",
+    attack=AttackType.SQLI,
 )
 for f in report.findings:
     print(f.confidence.name, f.point.expr, "→", f.evidence)
@@ -263,15 +263,28 @@ its own).
 from penpine import FlowRunner
 from penpine.attack.flow import SkipStepModule, CrossUserModule
 
-# Broken access control: does dropping a step still reach the protected outcome?
-report = FlowRunner().run_sync(flow, module=SkipStepModule())   # goal = last step
-for f in report.findings:
-    print(f.confidence.name, f.target, "->", f.evidence)
-
-# Cross-user (IDOR): can bob reach a resource alice created?
-idor = CrossUserModule(owner=alice, attacker=bob, access_steps=["access"])
-report = FlowRunner().run_sync(alice_flow, module=idor)
+report = FlowRunner().run_sync(flow, module=SkipStepModule)          # class, no parens
+report = FlowRunner().run_sync(flow, module=[SkipStepModule, CrossUserModule(owner=alice, attacker=bob)])
 ```
+
+### Custom logins
+
+`JsonLoginProvider`/`FormLoginProvider` cover single-request logins. For a
+multi-request or custom login, run a Flow — or subclass `AuthProvider`:
+
+```python
+from penpine.auth import FlowLoginProvider
+from penpine.data.extract import Extract
+
+login = Flow(steps=[
+    Step("page",   request=get_login,  capture=[Extract("csrf", regex=r'csrf" value="(.+?)"')]),
+    Step("submit", request=post_login, capture=[Extract("tok", json="$.access_token")]),  # uses {{csrf}}
+])
+profile = AuthProfile("admin", provider=FlowLoginProvider(login, token_key="tok"), scheme=BearerAuth())
+```
+
+Anything more exotic: subclass `AuthProvider` and implement `async login(self, engine)`
+to send whatever requests you need and return a `Session`.
 
 ## L4 — Analyze, attack, validate
 
@@ -279,6 +292,7 @@ report = FlowRunner().run_sync(alice_flow, module=idor)
 
 ```python
 from penpine.attack.analyze import analyze
+from penpine.attack.types import AttackType
 
 analysis = analyze(Request.from_url("http://t/p?id=7&q=hi&next=http://e.com"))
 for p in analysis:
@@ -287,7 +301,7 @@ for p in analysis:
 # param:q    ('sqli', 'xss')
 # param:next ('open-redirect', 'sqli', 'ssrf', 'xss')
 
-analysis.for_attack("sqli")          # just the SQLi-candidate points
+analysis.for_attack(AttackType.SQLI)          # just the SQLi-candidate points
 ```
 
 ### Run an attack end-to-end
@@ -297,12 +311,12 @@ analyzer tagged for the chosen attack, generates payloads, sends everything
 concurrently against a captured baseline, and validates each response.
 
 ```python
-from penpine import Runner
+from penpine import Runner, AttackType
 from penpine.attack.modules import register_builtins
 
 register_builtins()                  # registers sqli / xss / path-traversal / open-redirect
 
-report = Runner().run_sync(req, attack="sqli")
+report = Runner().run_sync(req, attack=AttackType.SQLI)
 
 print(report.summary())              # {'sent': N, 'failed': 0, 'found': M}
 for f in report.findings:
@@ -313,14 +327,27 @@ Send through an authenticated identity by passing it as the `sender` (anything
 exposing `async send(request)` works — `Engine`, `SessionManager`, `Identity`):
 
 ```python
-report = Runner(sender=alice).run_sync(req, attack="xss")
+report = Runner(sender=alice).run_sync(req, attack=AttackType.XSS)
+```
+
+Run several attacks in one call — pass a list of modules or attack types; all
+results aggregate into one report:
+
+```python
+from penpine.attack.modules.sqli import SQLI_MODULE
+from penpine.attack.modules.xss import XSS_MODULE
+
+report = Runner().run_sync(req, module=[SQLI_MODULE, XSS_MODULE])
+report = Runner().run_sync(req, attack=[AttackType.SQLI, AttackType.XSS])
+for f in report.findings:
+    print(f.attack_type, f.point.expr)   # each finding carries its own type
 ```
 
 ### Bring your own payloads, test cases, or module
 
 ```python
 # Override the points the analyzer chose:
-report = Runner().run_sync(req, attack="sqli", points=analyze(req).all())
+report = Runner().run_sync(req, attack=AttackType.SQLI, points=analyze(req).all())
 
 # Supply explicit test cases with your own validator:
 report = Runner().run_sync(req, test_cases=my_cases, validator=my_validator)
@@ -384,9 +411,9 @@ capabilities:
   already wired.
 - **Connection pooling / keep-alive** — opt-in via `Engine(reuse_connections=True)`
   (default off), keyed by host/port/tls with per-host idle cap + eviction.
-- **Differential (blind) SQLi** — boolean-based (`Runner.run(attack="sqli-boolean")`)
-  and time-based (`"sqli-time"`) via an active-prober Runner extension; registered
-  by name, kept out of the default signature module set.
+- **Differential (blind) SQLi** — boolean-based (`Runner().run_sync(req, module=BooleanSqliModule)`)
+  and time-based (`module=TimeSqliModule`) via an active-prober Runner extension; kept
+  out of the default signature module set.
 
 Documented follow-ups not yet implemented:
 
