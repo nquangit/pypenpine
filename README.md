@@ -273,9 +273,11 @@ report = FlowRunner().run_sync(flow, module=[SkipStepModule, CrossUserModule(own
 multi-request or custom login, run a Flow — or subclass `AuthProvider`:
 
 ```python
-from penpine.auth import FlowLoginProvider
+from penpine import AuthProfile, Flow, Step
+from penpine.auth import BearerAuth, FlowLoginProvider
 from penpine.data.extract import Extract
 
+# get_login / post_login are your own Request objects (see L0 above)
 login = Flow(steps=[
     Step("page",   request=get_login,  capture=[Extract("csrf", regex=r'csrf" value="(.+?)"')]),
     Step("submit", request=post_login, capture=[Extract("tok", json="$.access_token")]),  # uses {{csrf}}
@@ -334,6 +336,7 @@ Run several attacks in one call — pass a list of modules or attack types; all
 results aggregate into one report:
 
 ```python
+from penpine import AttackType, Runner
 from penpine.attack.modules.sqli import SQLI_MODULE
 from penpine.attack.modules.xss import XSS_MODULE
 
