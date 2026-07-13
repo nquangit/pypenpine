@@ -93,6 +93,13 @@ class FlowLoginProvider(AuthProvider):
     auth yet), so its steps should rely on the flow's default actor rather than
     naming their own. Capture the token/expiry/cookies/data in the flow via
     `Extract`, then name the context keys here.
+
+    Each `cookie_keys` entry is used as both the context key to read and the
+    cookie name sent on the wire — name your captured context keys after the
+    real cookie names (or capture into a key matching the cookie name). Keys are
+    optional; a `token_key` that isn't present in the captured context yields
+    `Session.token = None` (typically the login step's required Extract fails
+    first, raising LoginError).
     """
 
     def __init__(self, flow, *, token_key=None, expires_key=None, cookie_keys=None, data_keys=None):
