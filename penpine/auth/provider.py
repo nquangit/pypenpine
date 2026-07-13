@@ -8,6 +8,8 @@ from penpine.auth.exceptions import LoginError
 from penpine.auth.session import Session
 from penpine.core.builder import RequestBuilder
 from penpine.core.cookies import parse_set_cookie
+from penpine.flow.exceptions import StepError
+from penpine.flow.flow import Flow
 
 
 class AuthProvider:
@@ -82,3 +84,43 @@ class FormLoginProvider(AuthProvider):
                 parsed = parse_set_cookie(value)
                 cookies.append((parsed.name, parsed.value))
         return Session(cookies=cookies)
+
+
+class FlowLoginProvider(AuthProvider):
+    """Log in by running a Flow and mapping its captured context to a Session.
+
+    The login Flow is run with the provided `engine` as its actor (login has no
+    auth yet), so its steps should rely on the flow's default actor rather than
+    naming their own. Capture the token/expiry/cookies/data in the flow via
+    `Extract`, then name the context keys here.
+    """
+
+    def __init__(self, flow, *, token_key=None, expires_key=None, cookie_keys=None, data_keys=None):
+        self._flow = flow
+        self._token_key = token_key
+        self._expires_key = expires_key
+        self._cookie_keys = list(cookie_keys or [])
+        self._data_keys = list(data_keys or [])
+
+    async def login(self, engine) -> Session:
+        run_flow = Flow(
+            steps=self._flow.steps,
+            actor=engine,
+            continue_on_error=self._flow.continue_on_error,
+        )
+        try:
+            result = await run_flow.run()
+        except StepError as exc:
+            raise LoginError(f"login flow failed at step {exc.name!r}") from exc
+
+        ctx = result.context
+        token = ctx.get(self._token_key) if self._token_key else None
+        expires_at = None
+        if self._expires_key and self._expires_key in ctx:
+            try:
+                expires_at = time.time() + float(ctx[self._expires_key])
+            except (TypeError, ValueError):
+                expires_at = None
+        cookies = [(k, ctx[k]) for k in self._cookie_keys if k in ctx]
+        data = {k: ctx[k] for k in self._data_keys if k in ctx}
+        return Session(token=token, cookies=cookies, data=data, expires_at=expires_at)
