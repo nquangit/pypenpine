@@ -168,3 +168,27 @@ async def test_run_single_module_keeps_its_attack_type():
     req = Request.from_url("http://t/item?q=hello")
     report = await Runner(sender=sender).run(req, module=[SQLI_MODULE])  # list of one
     assert report.attack_type is AttackType.SQLI
+
+
+async def test_run_bare_class_needing_args_raises_config_error():
+    class _NeedsArg:
+        def __init__(self, required):  # required constructor arg
+            self.required = required
+
+    with pytest.raises(AttackConfigError):
+        await Runner().run(Request.from_url("http://t/x"), module=_NeedsArg)
+
+
+async def test_run_does_not_mask_a_typeerror_from_module_init_body():
+    class _BadInit:
+        attack_type = AttackType.SQLI
+        name = "bad"
+
+        def __init__(self):
+            raise TypeError("genuine bug in __init__")
+
+        def applies(self, kind):
+            return True
+
+    with pytest.raises(TypeError, match="genuine bug"):
+        await Runner().run(Request.from_url("http://t/x"), module=_BadInit)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import inspect
 import threading
 import time
 
@@ -12,6 +13,7 @@ from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.models import Payload, TestCase
 from penpine.attack.registry import by_type as _registry_by_type
 from penpine.attack.results import Attempt, Report
+from penpine.attack.types import AttackType
 from penpine.transport.engine import Engine
 
 
@@ -25,15 +27,15 @@ class Runner:
         self._loop_lock = threading.Lock()
 
     def _instantiate(self, m):
-        if isinstance(m, type):
-            try:
-                return m()
-            except TypeError as exc:
-                raise AttackConfigError(
-                    f"module class {m.__name__} needs constructor arguments; "
-                    f"pass an instance instead"
-                ) from exc
-        return m
+        if not isinstance(m, type):
+            return m
+        try:
+            inspect.signature(m).bind()
+        except TypeError as exc:
+            raise AttackConfigError(
+                f"module class {m.__name__} needs constructor arguments; pass an instance instead"
+            ) from exc
+        return m()
 
     def _resolve_modules(self, attack, module):
         modules = []
@@ -57,7 +59,7 @@ class Runner:
         self,
         request,
         *,
-        attack=None,
+        attack: AttackType | list[AttackType] | None = None,
         module=None,
         test_cases=None,
         points=None,
