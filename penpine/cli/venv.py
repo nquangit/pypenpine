@@ -10,7 +10,11 @@ from penpine.cli.exceptions import VenvError
 
 
 def _venv_python(project_dir) -> Path:
-    venv_dir = Path(project_dir) / ".venv"
+    # Resolve to an absolute path: pip_install runs this interpreter with
+    # `cwd=project_dir`, and subprocess resolves a *relative* executable against
+    # that cwd — so a relative path (from a relative project dir) would be looked
+    # up under project_dir/project_dir/... and vanish. Absolute avoids that.
+    venv_dir = Path(project_dir).resolve() / ".venv"
     windows = venv_dir / "Scripts" / "python.exe"
     return windows if windows.exists() else venv_dir / "bin" / "python"
 
@@ -26,8 +30,14 @@ def create_venv(project_dir, *, python: str | None = None, runner=subprocess.run
 
 
 def pip_install(project_dir, *, runner=subprocess.run) -> None:
+    python = _venv_python(project_dir)
+    if not python.exists():
+        raise VenvError(
+            f"virtualenv interpreter not found at {python} "
+            f"(venv creation may have failed); cannot install requirements"
+        )
     result = runner(
-        [str(_venv_python(project_dir)), "-m", "pip", "install", "-r", "requirements.txt"],
+        [str(python), "-m", "pip", "install", "-r", "requirements.txt"],
         cwd=str(project_dir),
         capture_output=True,
         text=True,
