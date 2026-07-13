@@ -1,4 +1,9 @@
+import pytest
+
+from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.flow.module import FlowAttackModule, FlowVariant
+from penpine.attack.flow.modules.cross_user import CrossUserModule
+from penpine.attack.flow.modules.skip_step import SkipStepModule
 from penpine.attack.flow.results import FlowFinding, FlowReport
 from penpine.attack.flow.runner import FlowRunner
 from penpine.attack.models import Confidence
@@ -80,3 +85,44 @@ async def test_runner_never_raises_on_variant_run_error():
     report = await FlowRunner().run(_flow(), module=_Mod())
     assert report.summary()["failed"] == 1
     assert isinstance(report.errors[0].error, RuntimeError)
+
+
+def _twostep_flow():
+    return Flow(
+        actor=FakeActor(script=[response(b"ok")]),
+        steps=[
+            Step("a", request=Request.from_url("http://t/a")),
+            Step("b", request=Request.from_url("http://t/b")),
+        ],
+    )
+
+
+async def test_flowrunner_accepts_a_class():
+    report = await FlowRunner().run(_twostep_flow(), module=SkipStepModule)  # class, no parens
+    assert isinstance(report, FlowReport)
+    assert report.attack_type is AttackType.BROKEN_ACCESS  # one module -> its type
+
+
+async def test_flowrunner_bare_class_needing_args_raises():
+    with pytest.raises(AttackConfigError):
+        await FlowRunner().run(_twostep_flow(), module=CrossUserModule)  # needs owner/attacker
+
+
+async def test_flowrunner_runs_a_list_of_modules_into_one_report():
+    class _Stub(FlowAttackModule):
+        attack_type = AttackType.IDOR
+        name = "stub"
+
+        def mutate(self, base_flow, baseline_result, targets):
+            yield FlowVariant(flow=_twostep_flow(), target="stub-v")
+
+        def validate(self, variant, variant_result, baseline_result):
+            return None
+
+    base = _twostep_flow()
+    skip_only = await FlowRunner().run(_twostep_flow(), module=SkipStepModule)
+    n_skip = skip_only.summary()["variants"]
+
+    report = await FlowRunner().run(base, module=[SkipStepModule, _Stub()])
+    assert report.summary()["variants"] == n_skip + 1  # skip's variants + stub's one
+    assert report.attack_type is None  # heterogeneous

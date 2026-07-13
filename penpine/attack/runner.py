@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import inspect
 import threading
 import time
 
@@ -25,13 +26,27 @@ class Runner:
         self._loop_thread = None
         self._loop_lock = threading.Lock()
 
+    def _instantiate(self, m):
+        if not isinstance(m, type):
+            return m
+        try:
+            inspect.signature(m).bind()
+        except TypeError as exc:
+            raise AttackConfigError(
+                f"module class {m.__name__} needs constructor arguments; pass an instance instead"
+            ) from exc
+        return m()
+
     def _resolve_modules(self, attack, module):
+        modules = []
         if module is not None:
-            mod = module() if isinstance(module, type) else module
-            return [mod]
+            items = module if isinstance(module, (list, tuple)) else [module]
+            modules += [self._instantiate(m) for m in items]
         if attack is not None:
-            return _registry_by_type(attack, signature_only=True)
-        return []
+            attacks = attack if isinstance(attack, (list, tuple)) else [attack]
+            for a in attacks:
+                modules += _registry_by_type(a, signature_only=True)
+        return modules
 
     def _select_points(self, request, module, attack_type, points):
         if points is not None:
@@ -44,7 +59,7 @@ class Runner:
         self,
         request,
         *,
-        attack: AttackType | None = None,
+        attack: AttackType | list[AttackType] | None = None,
         module=None,
         test_cases=None,
         points=None,
@@ -53,11 +68,11 @@ class Runner:
     ):
         """Run an attack and return a Report.
 
-        Provide one of: `attack` (an `AttackType`, resolved to every registered
-        signature module of that category via `registry.by_type`), `module` (an
-        `AttackModule`/`DifferentialModule` instance or class -- a class is
-        instantiated no-arg), or `test_cases` (explicit `TestCase`s, no module
-        involved). Points to attack default to `analyze(request).for_attack(mod.attack_type)`
+        Provide one of: `attack` (an `AttackType` or list of `AttackType`s,
+        resolved to registered signature modules via `registry.by_type`), `module`
+        (an `AttackModule`/`DifferentialModule` instance/class or list of them --
+        a class is instantiated no-arg), or `test_cases` (explicit `TestCase`s, no
+        module involved). Points to attack default to `analyze(request).for_attack(mod.attack_type)`
         filtered by `module.applies(kind)` for each resolved module. Pass `points=`
         to override selection entirely (this BYPASSES the `applies` filter -- it
         runs the generator/prober on exactly the points you give). `sender`
@@ -84,11 +99,7 @@ class Runner:
             raise AttackConfigError("run() requires one of attack=, module=, or test_cases=")
 
         baseline = await self._baseline(request, active_sender)
-        attack_type = (
-            attack
-            if attack is not None
-            else (modules[0].attack_type if len(modules) == 1 else None)
-        )
+        attack_type = modules[0].attack_type if len(modules) == 1 else None
 
         attempts = []
         for mod in modules:

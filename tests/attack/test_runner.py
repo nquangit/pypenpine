@@ -9,6 +9,8 @@ from penpine.attack.models import InjectionPoint, Payload, TestCase
 from penpine.attack.module import AttackModule
 from penpine.attack.modules import register_builtins
 from penpine.attack.modules.differential import BooleanSqliModule
+from penpine.attack.modules.sqli import SQLI_MODULE
+from penpine.attack.modules.xss import XSS_MODULE
 from penpine.attack.runner import Runner
 from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
@@ -135,3 +137,58 @@ async def test_run_accepts_a_module_class_and_instantiates_it():
     report = await Runner(sender=sender).run(req, module=BooleanSqliModule)
     assert report.summary()["sent"] == 1  # one point ('id') probed, ran without error
     assert report.attack_type is AttackType.SQLI
+
+
+async def test_run_accepts_a_list_of_module_instances():
+    sender = FakeSender([b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\n\r\nbaseline"])
+    req = Request.from_url("http://t/item?q=hello")  # 'q' -> sqli + xss candidate
+    report = await Runner(sender=sender).run(req, module=[SQLI_MODULE, XSS_MODULE])
+    techniques = {a.test_case.payload.technique for a in report}
+    assert "error-based" in techniques  # sqli ran
+    assert "reflected" in techniques  # xss ran
+    assert report.attack_type is None  # heterogeneous -> None
+
+
+async def test_run_accepts_a_list_of_attack_types():
+    registry.clear()
+    register_builtins()
+    try:
+        sender = FakeSender([b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\n\r\nbaseline"])
+        req = Request.from_url("http://t/item?q=hello")
+        report = await Runner(sender=sender).run(req, attack=[AttackType.SQLI, AttackType.XSS])
+        techniques = {a.test_case.payload.technique for a in report}
+        assert {"error-based", "reflected"} <= techniques
+        assert report.attack_type is None
+    finally:
+        registry.clear()
+
+
+async def test_run_single_module_keeps_its_attack_type():
+    sender = FakeSender([b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\n\r\nbaseline"])
+    req = Request.from_url("http://t/item?q=hello")
+    report = await Runner(sender=sender).run(req, module=[SQLI_MODULE])  # list of one
+    assert report.attack_type is AttackType.SQLI
+
+
+async def test_run_bare_class_needing_args_raises_config_error():
+    class _NeedsArg:
+        def __init__(self, required):  # required constructor arg
+            self.required = required
+
+    with pytest.raises(AttackConfigError):
+        await Runner().run(Request.from_url("http://t/x"), module=_NeedsArg)
+
+
+async def test_run_does_not_mask_a_typeerror_from_module_init_body():
+    class _BadInit:
+        attack_type = AttackType.SQLI
+        name = "bad"
+
+        def __init__(self):
+            raise TypeError("genuine bug in __init__")
+
+        def applies(self, kind):
+            return True
+
+    with pytest.raises(TypeError, match="genuine bug"):
+        await Runner().run(Request.from_url("http://t/x"), module=_BadInit)
