@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import threading
 
 from penpine._sync import run_on_loop
@@ -54,14 +55,21 @@ class Engine:
         self._loop_thread = None
 
     async def send(self, request):
-        if self.timeouts.total:
-            try:
-                return await asyncio.wait_for(self._send(request), self.timeouts.total)
-            except TimeoutError as exc:
-                raise TotalTimeout(
-                    f"send exceeded total timeout of {self.timeouts.total}s"
-                ) from exc
-        return await self._send(request)
+        try:
+            if self.timeouts.total:
+                try:
+                    return await asyncio.wait_for(self._send(request), self.timeouts.total)
+                except TimeoutError as exc:
+                    raise TotalTimeout(
+                        f"send exceeded total timeout of {self.timeouts.total}s"
+                    ) from exc
+            return await self._send(request)
+        except Exception as exc:
+            for ic in reversed(self.interceptors):
+                # an error hook must never mask the original failure
+                with contextlib.suppress(Exception):
+                    await ic.on_error(request, exc)
+            raise
 
     async def _send(self, request):
         meta = request.meta
