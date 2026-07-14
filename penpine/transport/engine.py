@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 
+from penpine._sync import run_on_loop
 from penpine.transport.connection import Connection
 from penpine.transport.exceptions import (
     ConnectError,
@@ -153,15 +154,13 @@ class Engine:
 
     def send_sync(self, request):
         self._ensure_loop()
-        future = asyncio.run_coroutine_threadsafe(self.send(request), self._loop)
-        return future.result()
+        return run_on_loop(self._loop, self.send(request))
 
     def send_many_sync(self, requests, *, return_exceptions=False):
         self._ensure_loop()
-        future = asyncio.run_coroutine_threadsafe(
-            self.send_many(requests, return_exceptions=return_exceptions), self._loop
+        return run_on_loop(
+            self._loop, self.send_many(requests, return_exceptions=return_exceptions)
         )
-        return future.result()
 
     def close(self):
         if self._loop is not None:
