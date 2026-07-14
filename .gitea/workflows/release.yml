@@ -38,7 +38,7 @@ jobs:
           TWINE_USERNAME: nquangit
           TWINE_PASSWORD: ${{ secrets.PACKAGE_TOKEN }}
         run: |
-          twine upload --non-interactive \
+          twine upload --non-interactive --skip-existing \
             --repository-url "${GITHUB_SERVER_URL}/api/packages/nquangit/pypi" \
             dist/*
 

@@ -79,7 +79,10 @@ def main(argv: list[str] | None = None) -> int:
 
     text = _PYPROJECT.read_text()
     current = read_version(text)
-    new = next_version(current, args.spec)
+    try:
+        new = next_version(current, args.spec)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
     tag = f"v{new}"
 
     if _git("tag", "--list", tag, capture=True).stdout.strip():
@@ -100,8 +103,9 @@ def main(argv: list[str] | None = None) -> int:
         print("push when ready:  git push origin main --follow-tags")
         return 0
 
-    _git("push", "origin", "main")
-    _git("push", "origin", tag)
+    # Atomic: main and the tag land together or not at all (a bump without a
+    # pushed tag would leave the release workflow un-triggered).
+    _git("push", "--atomic", "origin", "main", tag)
     print(f"pushed {tag}; the release workflow will build, publish, and release it.")
     return 0
 
