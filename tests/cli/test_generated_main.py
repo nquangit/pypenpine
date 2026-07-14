@@ -11,8 +11,6 @@ from penpine.cli.scaffold import render_project
 VARS = {
     "project_name": "demo",
     "project_slug": "demo",
-    "penpine_path": "/tmp/pp",
-    "penpine_spec": "penpine",
     "date": date.today().isoformat(),
     "python_version": "3.11",
 }
