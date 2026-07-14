@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-__all__ = ["console", "render_report", "render_run_summary"]
+__all__ = ["console", "render_report", "render_run_summary", "RequestTableRenderer"]
 
 console = Console()
 
@@ -124,3 +124,50 @@ def render_run_summary(results: object, *, console: Console = console) -> None:
         total_found,
     )
     console.print(table)
+
+
+class RequestTableRenderer:
+    """Print request activity as an aligned table: STATUS METHOD SIZE TIME URL.
+    Fixed-width leading columns give cross-row alignment; the URL column folds.
+    A dim header row is printed once, before the first data row."""
+
+    _COLS = (
+        ("STATUS", 6, "right"),
+        ("METHOD", 7, "left"),
+        ("SIZE", 8, "right"),
+        ("TIME", 8, "right"),
+    )
+
+    def __init__(self, *, console: Console = console):
+        self._console = console
+        self._header_shown = False
+
+    def _grid(self) -> Table:
+        grid = Table.grid(padding=(0, 1))
+        for _, width, justify in self._COLS:
+            grid.add_column(width=width, justify=justify)
+        grid.add_column(overflow="fold")  # URL, flexes to remaining width
+        return grid
+
+    def _ensure_header(self) -> None:
+        if self._header_shown:
+            return
+        grid = self._grid()
+        grid.add_row(
+            *[Text(name, style="dim") for name, _, _ in self._COLS], Text("URL", style="dim")
+        )
+        self._console.print(grid)
+        self._header_shown = True
+
+    def row(self, *, status, method, size, timing, url, failed: bool = False) -> None:
+        self._ensure_header()
+        style = "red" if failed else _status_style(status)
+        grid = self._grid()
+        grid.add_row(
+            Text(str(status), style=style),
+            escape(str(method)),
+            str(size),
+            str(timing),
+            escape(_truncate(url, 500)),
+        )
+        self._console.print(grid)
