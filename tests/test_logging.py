@@ -17,9 +17,11 @@ def test_no_import_side_effects_on_root():
 
 
 def test_configure_logging_sets_level_and_handler():
+    from rich.logging import RichHandler
+
     log = configure_logging(level=logging.DEBUG)
     assert log.level == logging.DEBUG
-    assert any(h for h in log.handlers)
+    assert any(isinstance(h, RichHandler) for h in log.handlers)
     n = len(log.handlers)
     configure_logging(level=logging.INFO)
     assert len(log.handlers) == n

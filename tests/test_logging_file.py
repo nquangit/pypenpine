@@ -37,3 +37,14 @@ def test_configure_logging_is_idempotent(tmp_path):
     n = len(logging.getLogger(_ROOT).handlers)
     configure_logging(log_file=str(path))
     assert len(logging.getLogger(_ROOT).handlers) == n
+
+
+def test_file_handler_strips_markup(tmp_path):
+    path = tmp_path / "run.log"
+    configure_logging(level="INFO", log_file=str(path))
+    get_logger("penpine.demo").info("[green]200[/] hello-markup")
+    for h in logging.getLogger(_ROOT).handlers:
+        h.flush()
+    text = path.read_text()
+    assert "hello-markup" in text
+    assert "[green]" not in text  # markup stripped in file output
