@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
@@ -131,7 +133,7 @@ class RequestTableRenderer:
     Fixed-width leading columns give cross-row alignment; the URL column folds.
     A dim header row is printed once, before the first data row."""
 
-    _COLS = (
+    _COLS: tuple[tuple[str, int, Literal["left", "right"]], ...] = (
         ("STATUS", 6, "right"),
         ("METHOD", 7, "left"),
         ("SIZE", 8, "right"),
@@ -159,7 +161,16 @@ class RequestTableRenderer:
         self._console.print(grid)
         self._header_shown = True
 
-    def row(self, *, status, method, size, timing, url, failed: bool = False) -> None:
+    def row(
+        self,
+        *,
+        status: object,
+        method: object,
+        size: object,
+        timing: object,
+        url: object,
+        failed: bool = False,
+    ) -> None:
         self._ensure_header()
         style = "red" if failed else _status_style(status)
         grid = self._grid()
