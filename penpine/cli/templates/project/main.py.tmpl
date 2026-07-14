@@ -14,6 +14,7 @@ from checkpoint import Checkpoint
 from penpine import Engine, Runner, configure_logging, get_logger
 from penpine.attack.modules import register_builtins
 from penpine.core.message import Request
+from penpine.render import console, render_report, render_run_summary
 from penpine.transport import RequestLogInterceptor
 from penpine.transport.proxy import ProxyConfig
 from penpine.transport.tls import TLSConfig
@@ -50,16 +51,17 @@ def main():
     runner = build_runner()
     checkpoint = Checkpoint(config.CHECKPOINT_FILE, resume=config.RESUME)
     try:
+        results = []
         for attack in config.ATTACKS:
             item = attack.value
             if checkpoint.is_done(item):
                 log.info("skip %s (already done)", item)
                 continue
             report = runner.run_sync(request, attack=attack)
-            print(f"\n== {item} ==  {report.summary()}")
-            for finding in report.findings:
-                print(f"  [{finding.confidence.name}] {finding.point.expr} -> {finding.evidence}")
+            render_report(report, console=console)
+            results.append((item, report))
             checkpoint.mark_done(item)
+        render_run_summary(results, console=console)
     except KeyboardInterrupt:
         log.warning("interrupted; progress saved to %s (rerun to resume)", config.CHECKPOINT_FILE)
     finally:
