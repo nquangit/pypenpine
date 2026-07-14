@@ -10,6 +10,7 @@ from penpine.render import (
     _truncate,
     console,
     render_report,
+    render_run_summary,
 )
 
 
@@ -116,3 +117,43 @@ def test_render_report_escapes_markup_in_payload():
     render_report(report, console=c)
     out = c.export_text()
     assert "[bold]pwn[/]" in out  # literal, not interpreted as markup
+
+
+def test_render_run_summary_totals_and_labels():
+    c = _rec()
+    r1 = Report(
+        request=object(),
+        attack_type=AttackType.SQLI,
+        baseline=None,
+        attempts=[
+            Attempt(test_case=object(), response=_Resp(500), finding=_finding(), elapsed_ms=1.0),
+            Attempt(test_case=object(), error=RuntimeError("x")),
+        ],
+    )
+    r2 = Report(
+        request=object(),
+        attack_type=AttackType.XSS,
+        baseline=None,
+        attempts=[Attempt(test_case=object(), response=_Resp(200))],
+    )
+    render_run_summary([("login.php / sqli", r1), ("login.php / xss", r2)], console=c)
+    out = c.export_text()
+    assert "login.php / sqli" in out
+    assert "login.php / xss" in out
+    assert "TOTAL" in out
+    # totals: sent 2+1=3, failed 1, found 1
+    assert "3" in out and "TOTAL" in out
+
+
+def test_run_summary_empty_does_not_crash():
+    c = _rec()
+    render_run_summary([], console=c)
+    assert "TOTAL" in c.export_text()
+
+
+def test_render_symbols_reexported_from_root():
+    import penpine
+
+    assert hasattr(penpine, "render_report")
+    assert hasattr(penpine, "render_run_summary")
+    assert hasattr(penpine, "console")

@@ -14,6 +14,7 @@ from penpine.data.identity import Identity
 from penpine.flow.flow import Flow
 from penpine.flow.step import Step
 from penpine.logging import configure_logging, get_logger
+from penpine.render import console, render_report, render_run_summary
 from penpine.transport.connection import Connection
 from penpine.transport.engine import Engine
 
@@ -25,6 +26,9 @@ __all__ = [
     "Body",
     "configure_logging",
     "get_logger",
+    "console",
+    "render_report",
+    "render_run_summary",
     "Engine",
     "Connection",
     "SessionManager",

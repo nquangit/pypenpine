@@ -6,8 +6,9 @@ from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
-__all__ = ["console", "render_report"]
+__all__ = ["console", "render_report", "render_run_summary"]
 
 console = Console()
 
@@ -90,3 +91,36 @@ def render_report(report: object, *, console: Console = console) -> None:
         console.print(f"[dim]errors: {len(errors)}[/]")
         for att in errors[:3]:
             console.print(f"[dim]  - {escape(str(att.error))}[/]")
+
+
+def render_run_summary(results: object, *, console: Console = console) -> None:
+    table = Table(title="run summary", title_justify="left", expand=False)
+    table.add_column("target / attack")
+    table.add_column("sent", justify="right")
+    table.add_column("failed", justify="right")
+    table.add_column("found", justify="right")
+
+    tot_sent = tot_failed = tot_found = 0
+    for label, report in results:
+        s = report.summary()
+        tot_sent += s["sent"]
+        tot_failed += s["failed"]
+        tot_found += s["found"]
+        found_cell = Text(str(s["found"]), style="bold red") if s["found"] else Text("0")
+        table.add_row(
+            escape(str(label)),
+            str(s["sent"]),
+            str(s["failed"]),
+            found_cell,
+            style="bold" if s["found"] else None,
+        )
+
+    table.add_section()
+    total_found = Text(str(tot_found), style="bold red") if tot_found else Text("0")
+    table.add_row(
+        Text("TOTAL", style="bold"),
+        Text(str(tot_sent), style="bold"),
+        Text(str(tot_failed), style="bold"),
+        total_found,
+    )
+    console.print(table)
