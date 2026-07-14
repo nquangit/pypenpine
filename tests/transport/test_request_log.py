@@ -1,8 +1,22 @@
 import logging
 
+import pytest
+
 from penpine.core.message import Request
 from penpine.core.parse.http_parser import parse_response
 from penpine.transport.interceptor import RequestLogInterceptor
+
+
+@pytest.fixture(autouse=True)
+def _capturable_penpine_logger():
+    log = logging.getLogger("penpine")
+    saved_propagate = log.propagate
+    saved_handlers = log.handlers[:]
+    log.propagate = True  # let caplog capture via propagation to root
+    log.handlers.clear()  # remove any console/file handler left by configure_logging
+    yield
+    log.propagate = saved_propagate
+    log.handlers[:] = saved_handlers
 
 
 async def test_request_log_interceptor_logs_line_and_passes_through(caplog):
