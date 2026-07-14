@@ -27,18 +27,9 @@ def run(
     if project.exists() and any(project.iterdir()) and not force:
         raise ScaffoldError(f"target {project} is not empty (use --force)")
 
-    root = paths.find_penpine_root()
-    if root is None:
-        log.warning(
-            "could not detect a local penpine source; requirements.txt will "
-            "use a plain 'penpine' spec (needs penpine on an index)"
-        )
-
     variables = {
         "project_name": name,
         "project_slug": paths.slugify(name),
-        "penpine_path": str(root) if root else "",
-        "penpine_spec": paths.penpine_spec(root),
         "date": date.today().isoformat(),
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",
     }

@@ -17,8 +17,10 @@ def test_no_venv_renders_full_tree(tmp_path):
         "samples/custom_module.py",
     ):
         assert (project / rel).exists(), rel
-    # editable spec auto-detected from THIS repo
-    assert "-e " in (project / "requirements.txt").read_text()
+    # requirements install penpine from the Gitea registry (no editable local spec)
+    reqs = (project / "requirements.txt").read_text()
+    assert "--extra-index-url" in reqs and "penpine" in reqs
+    assert "-e " not in reqs
 
 
 def test_non_empty_target_without_force_is_left_untouched(tmp_path):

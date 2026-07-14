@@ -5,8 +5,6 @@ from penpine.cli.scaffold import render_project
 VARS = {
     "project_name": "demo-eng",
     "project_slug": "demo_eng",
-    "penpine_path": "/tmp/pypenpine",
-    "penpine_spec": "-e /tmp/pypenpine",
     "date": date.today().isoformat(),
     "python_version": "3.11",
 }
@@ -24,8 +22,11 @@ def test_base_files_render_and_compile(tmp_path):
         "docs/README.md",
     ):
         assert (dst / rel).exists(), rel
-    # editable spec landed in requirements
-    assert "-e /tmp/pypenpine" in (dst / "requirements.txt").read_text()
+    # requirements install penpine from the Gitea registry
+    reqs = (dst / "requirements.txt").read_text()
+    assert "--extra-index-url" in reqs
+    assert "penpine" in reqs
+    assert "-e " not in reqs
     # main.py and config.py are valid Python
     compile((dst / "main.py").read_text(), "main.py", "exec")
     compile((dst / "config.py").read_text(), "config.py", "exec")
