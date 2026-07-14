@@ -21,6 +21,11 @@ class Interceptor:
     async def after_receive(self, request, response):
         return response
 
+    async def on_error(self, request, exc):
+        """Called when a send ultimately fails (after retries). Default no-op.
+        Must not raise."""
+        return None
+
 
 class RetrySignal(Exception):
     """Raised by an interceptor's after_receive to request a retry of send()."""
