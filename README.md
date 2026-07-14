@@ -50,8 +50,10 @@ for f in report.findings:
 
 ## Install
 
-Requires **Python 3.11+**. The only runtime dependency is `jsonpath-ng` (for
-JSON-body locators).
+Requires **Python 3.11+**. The core (raw sockets, HTTP parse/serialize, attack
+engine) is built on the standard library; the only non-stdlib runtime
+dependencies are `jsonpath-ng` (for JSON-body locators) and `rich` (for
+terminal output — presentation only, never on the request/attack path).
 
 ```bash
 pip install -e .            # from a checkout

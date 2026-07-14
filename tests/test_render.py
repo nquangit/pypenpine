@@ -1,0 +1,159 @@
+from rich.console import Console
+
+from penpine.attack.models import Confidence, Finding, InjectionPoint, Payload
+from penpine.attack.results import Attempt, Report
+from penpine.attack.types import AttackType
+from penpine.render import (
+    _confidence_style,
+    _humanize_bytes,
+    _status_style,
+    _truncate,
+    console,
+    render_report,
+    render_run_summary,
+)
+
+
+def test_status_style_by_class():
+    assert _status_style(200) == "green"
+    assert _status_style(301) == "cyan"
+    assert _status_style(404) == "yellow"
+    assert _status_style(500) == "red"
+    assert _status_style("?") == "red"
+
+
+def test_confidence_style_by_name():
+    class _C:
+        def __init__(self, name):
+            self.name = name
+
+    assert _confidence_style(_C("HIGH")) == "bold red"
+    assert _confidence_style(_C("MEDIUM")) == "yellow"
+    assert _confidence_style(_C("LOW")) == "dim cyan"
+
+
+def test_humanize_bytes():
+    assert _humanize_bytes(512) == "512 B"
+    assert _humanize_bytes(1536) == "1.5 kB"
+
+
+def test_truncate_adds_ellipsis():
+    assert _truncate("abc", 10) == "abc"
+    assert _truncate("abcdef", 4).endswith("…")
+    assert len(_truncate("abcdef", 4)) == 4
+
+
+def test_console_is_a_rich_console():
+    from rich.console import Console
+
+    assert isinstance(console, Console)
+
+
+def _point(expr="param:id"):
+    return InjectionPoint(expr=expr, kind="param", name="id")
+
+
+def _finding(evidence="SQL syntax error near", payload="' OR 1=1-- -"):
+    return Finding(
+        attack_type=AttackType.SQLI,
+        point=_point(),
+        payload=Payload(value=payload),
+        confidence=Confidence.HIGH,
+        evidence=evidence,
+    )
+
+
+class _Resp:
+    def __init__(self, status_code=500):
+        self.status_code = status_code
+
+
+def _rec():  # a recording console
+    return Console(record=True, width=100)
+
+
+def test_render_report_with_finding_shows_fields():
+    c = _rec()
+    att = Attempt(test_case=object(), response=_Resp(500), finding=_finding(), elapsed_ms=28.0)
+    report = Report(request=object(), attack_type=AttackType.SQLI, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "param:id" in out
+    assert "1=1" in out
+    assert "SQL syntax error" in out
+    assert "HIGH" in out
+    assert "sqli" in out
+
+
+def test_render_report_no_findings_shows_summary():
+    c = _rec()
+    att = Attempt(test_case=object(), response=_Resp(200))
+    report = Report(request=object(), attack_type=AttackType.XSS, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "sent=" in out
+    assert "found=0" in out
+
+
+def test_render_report_shows_errors():
+    c = _rec()
+    att = Attempt(test_case=object(), error=RuntimeError("connection refused"))
+    report = Report(request=object(), attack_type=AttackType.SQLI, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "errors:" in out
+    assert "connection refused" in out
+
+
+def test_render_report_escapes_markup_in_payload():
+    c = _rec()
+    att = Attempt(
+        test_case=object(),
+        response=_Resp(500),
+        finding=_finding(payload="[bold]pwn[/]"),
+        elapsed_ms=1.0,
+    )
+    report = Report(request=object(), attack_type=AttackType.SQLI, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "[bold]pwn[/]" in out  # literal, not interpreted as markup
+
+
+def test_render_run_summary_totals_and_labels():
+    c = _rec()
+    r1 = Report(
+        request=object(),
+        attack_type=AttackType.SQLI,
+        baseline=None,
+        attempts=[
+            Attempt(test_case=object(), response=_Resp(500), finding=_finding(), elapsed_ms=1.0),
+            Attempt(test_case=object(), error=RuntimeError("x")),
+        ],
+    )
+    r2 = Report(
+        request=object(),
+        attack_type=AttackType.XSS,
+        baseline=None,
+        attempts=[Attempt(test_case=object(), response=_Resp(200))],
+    )
+    render_run_summary([("login.php / sqli", r1), ("login.php / xss", r2)], console=c)
+    out = c.export_text()
+    assert "login.php / sqli" in out
+    assert "login.php / xss" in out
+    assert "TOTAL" in out
+    # totals: sent 2+1=3, failed 1, found 1
+    assert "3" in out and "TOTAL" in out
+
+
+def test_run_summary_empty_does_not_crash():
+    c = _rec()
+    render_run_summary([], console=c)
+    assert "TOTAL" in c.export_text()
+
+
+def test_render_symbols_reexported_from_root():
+    import penpine
+
+    assert hasattr(penpine, "render_report")
+    assert hasattr(penpine, "render_run_summary")
+    assert hasattr(penpine, "console")

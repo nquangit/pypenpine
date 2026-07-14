@@ -4,23 +4,25 @@ from __future__ import annotations
 
 import logging
 
+from rich.logging import RichHandler
+from rich.text import Text
+
+from penpine.render import console as _console
+
 _ROOT_NAME = "penpine"
 
-_LEVEL_COLORS = {
-    logging.DEBUG: "\033[36m",
-    logging.INFO: "\033[32m",
-    logging.WARNING: "\033[33m",
-    logging.ERROR: "\033[31m",
-    logging.CRITICAL: "\033[1;31m",
-}
-_RESET = "\033[0m"
 
+class _PlainFormatter(logging.Formatter):
+    """Strip rich markup from markup-opted records so log files stay plain text."""
 
-class _ColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        color = _LEVEL_COLORS.get(record.levelno, "")
-        base = super().format(record)
-        return f"{color}{base}{_RESET}" if color else base
+        s = super().format(record)
+        if getattr(record, "markup", False):
+            try:
+                return Text.from_markup(s).plain
+            except Exception:
+                return s
+        return s
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -31,25 +33,25 @@ def get_logger(name: str) -> logging.Logger:
 def configure_logging(
     level: int | str = logging.INFO, *, log_file: str | None = None
 ) -> logging.Logger:
-    """Attach a colored console handler (and optionally a plain file handler) to
-    the penpine root logger. `level` may be an int or a level-name string.
+    """Attach a rich console handler (and optionally a plain file handler) to the
+    penpine root logger. `level` may be an int or a level-name string.
     Idempotent: repeat calls do not duplicate handlers."""
     log = logging.getLogger(_ROOT_NAME)
     log.setLevel(level)
     log.propagate = False
 
     if not any(getattr(h, "_penpine_console", False) for h in log.handlers):
-        console = logging.StreamHandler()
-        console._penpine_console = True  # type: ignore[attr-defined]
-        console.setFormatter(_ColorFormatter("%(levelname)s %(name)s: %(message)s"))
-        log.addHandler(console)
+        handler = RichHandler(console=_console, markup=False, rich_tracebacks=True, show_path=False)
+        handler._penpine_console = True  # type: ignore[attr-defined]
+        handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+        log.addHandler(handler)
 
     if log_file is not None:
         target = str(log_file)
         if not any(getattr(h, "_penpine_file", None) == target for h in log.handlers):
             file_handler = logging.FileHandler(target)
             file_handler._penpine_file = target  # type: ignore[attr-defined]
-            file_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+            file_handler.setFormatter(_PlainFormatter("%(levelname)s %(name)s: %(message)s"))
             log.addHandler(file_handler)
 
     return log
