@@ -177,8 +177,8 @@ class RequestTableRenderer:
         grid.add_row(
             Text(str(status), style=style),
             escape(str(method)),
-            str(size),
-            str(timing),
+            escape(str(size)),
+            escape(str(timing)),
             escape(_truncate(url, 500)),
         )
         self._console.print(grid)

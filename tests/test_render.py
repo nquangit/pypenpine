@@ -209,3 +209,13 @@ def test_request_table_renderer_reexported():
     import penpine
 
     assert hasattr(penpine, "RequestTableRenderer")
+
+
+def test_request_table_escapes_size_and_timing():
+    c = Console(record=True, width=60)
+    r = RequestTableRenderer(console=c)
+    # markup kept short enough to fit the fixed-width SIZE/TIME columns on one
+    # line, so wrapping doesn't split the literal brackets across rows.
+    r.row(status=200, method="GET", size="[i]1B[/]", timing="[i]9s[/]", url="/x")
+    text = c.export_text()
+    assert "[i]1B[/]" in text and "[i]9s[/]" in text

@@ -58,6 +58,24 @@ async def test_on_error_hook_that_raises_does_not_mask_original():
         await engine.send(Request.from_url("http://h/"))
 
 
+async def test_on_error_continues_after_a_hook_raises():
+    log = []
+
+    class _Raiser(Interceptor):
+        async def on_error(self, request, exc):
+            raise ValueError("hook blew up")
+
+    class _Recorder2(Interceptor):
+        async def on_error(self, request, exc):
+            log.append("recorded")
+
+    # dispatch order is reversed(interceptors): _Raiser fires first, _Recorder2 second
+    engine = Engine(connection_factory=_BoomConn, interceptors=[_Recorder2(), _Raiser()])
+    with pytest.raises(ConnectionRefusedError):
+        await engine.send(Request.from_url("http://h/"))
+    assert log == ["recorded"]  # the later hook still ran despite the earlier one raising
+
+
 async def test_success_still_returns_and_calls_after_receive():
     seen = []
 

@@ -10,6 +10,7 @@ from penpine.logging import get_logger
 from penpine.render import RequestTableRenderer, _humanize_bytes
 
 _request_start: contextvars.ContextVar[float] = contextvars.ContextVar("penpine_request_start")
+_row_rendered: contextvars.ContextVar[bool] = contextvars.ContextVar("penpine_row_rendered")
 
 
 class Interceptor:
@@ -45,6 +46,7 @@ class RequestLogInterceptor(Interceptor):
 
     async def before_send(self, request):
         _request_start.set(time.perf_counter())
+        _row_rendered.set(False)
         return request
 
     def _timing(self) -> str:
@@ -74,9 +76,16 @@ class RequestLogInterceptor(Interceptor):
                 timing,
                 extra={"_penpine_request": True},
             )
+            _row_rendered.set(True)
         return response
 
     async def on_error(self, request, exc):
+        try:
+            already = _row_rendered.get()
+        except LookupError:
+            already = False
+        if already:
+            return None
         if self._log.isEnabledFor(self._level):
             timing = self._timing()
             summary = f"{type(exc).__name__}: {exc}"

@@ -92,6 +92,20 @@ async def test_level_gating_suppresses_output(caplog):
     assert caplog.records == []  # nothing logged
 
 
+async def test_on_error_after_success_does_not_double_render(caplog):
+    ic = RequestLogInterceptor()
+    rec = _recording(ic)
+    req = Request.from_url("http://t/path")
+    resp = parse_response(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+    with caplog.at_level(logging.INFO, logger="penpine.transport"):
+        await ic.before_send(req)
+        await ic.after_receive(req, resp)
+        await ic.on_error(req, RuntimeError("post-processing failed"))
+    text = rec.export_text()
+    assert "200" in text  # the success row rendered
+    assert "ERR" not in text  # on_error suppressed after a success row
+
+
 async def test_request_log_interceptor_reexported():
     from penpine.transport import RequestLogInterceptor as Exported
 
