@@ -20,7 +20,8 @@ from penpine.transport.tls import TLSConfig
 
 from samples.custom_module import register as register_custom
 
-log = get_logger("project")
+# Child of the "penpine" logger so configure_logging's handlers + level apply.
+log = get_logger("penpine.project")
 
 
 def load_request():

@@ -10,9 +10,13 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+from collections.abc import Coroutine
+from typing import Any, TypeVar
+
+_T = TypeVar("_T")
 
 
-def wait_interruptible(future, *, poll: float = 0.25):
+def wait_interruptible(future: concurrent.futures.Future[_T], *, poll: float = 0.25) -> _T:
     try:
         while True:
             try:
@@ -24,6 +28,8 @@ def wait_interruptible(future, *, poll: float = 0.25):
         raise
 
 
-def run_on_loop(loop, coro, *, poll: float = 0.25):
+def run_on_loop(
+    loop: asyncio.AbstractEventLoop, coro: Coroutine[Any, Any, _T], *, poll: float = 0.25
+) -> _T:
     future = asyncio.run_coroutine_threadsafe(coro, loop)
     return wait_interruptible(future, poll=poll)
