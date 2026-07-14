@@ -28,7 +28,9 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def configure_logging(level=logging.INFO, *, log_file=None) -> logging.Logger:
+def configure_logging(
+    level: int | str = logging.INFO, *, log_file: str | None = None
+) -> logging.Logger:
     """Attach a colored console handler (and optionally a plain file handler) to
     the penpine root logger. `level` may be an int or a level-name string.
     Idempotent: repeat calls do not duplicate handlers."""
