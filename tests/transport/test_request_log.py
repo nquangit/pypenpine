@@ -19,7 +19,22 @@ def _capturable_penpine_logger():
     log.handlers[:] = saved_handlers
 
 
-async def test_request_log_interceptor_logs_line_and_passes_through(caplog):
+async def test_request_logged_on_send_even_without_a_response(caplog):
+    # A request that is sent but never gets a response (the real send raises after
+    # before_send, so after_receive is never called) must STILL be logged.
+    # Regression: the interceptor used to log only in after_receive, so failed /
+    # unreachable requests were invisible (a down target logged nothing).
+    ic = RequestLogInterceptor()
+    req = Request.from_url("http://t/path?x=1")
+    with caplog.at_level(logging.INFO, logger="penpine.transport"):
+        await ic.before_send(req)  # sent; the real send then raises -> no after_receive
+    msgs = [r.getMessage() for r in caplog.records]
+    assert any("GET" in m and "/path" in m for m in msgs), (
+        "the request attempt must be logged on send, not only on response"
+    )
+
+
+async def test_request_and_response_logged_and_passthrough(caplog):
     ic = RequestLogInterceptor()
     req = Request.from_url("http://t/path?x=1")
     resp = parse_response(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
@@ -27,8 +42,10 @@ async def test_request_log_interceptor_logs_line_and_passes_through(caplog):
         await ic.before_send(req)
         out = await ic.after_receive(req, resp)
     assert out is resp  # passthrough, unchanged
-    msgs = [r.getMessage() for r in caplog.records]
-    assert any("GET" in m and "-> 200" in m for m in msgs)
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "GET /path?x=1" in text  # the request attempt line
+    assert "200" in text  # the response status line
+    assert len(caplog.records) == 2  # one line on send, one on receive
 
 
 async def test_request_log_interceptor_reexported():
