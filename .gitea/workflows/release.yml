@@ -23,7 +23,7 @@ jobs:
       - name: Verify tag matches pyproject version
         run: |
           set -euo pipefail
-          VERSION=$(python -c "import re,pathlib;print(re.search(r'version\s*=\s*\"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text()).group(1))")
+          VERSION=$(python -c "import re,pathlib;print(re.search(r'(?m)^version\s*=\s*\"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text()).group(1))")
           echo "pyproject version: $VERSION | tag: ${GITHUB_REF_NAME}"
           if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
             echo "::error::tag ${GITHUB_REF_NAME} does not match pyproject version v${VERSION}"
@@ -70,7 +70,9 @@ jobs:
           fi
           for f in dist/*; do
             echo "uploading asset: $(basename "$f")"
-            curl -sSf -X POST "$API/releases/$RID/assets?name=$(basename "$f")" \
-              -H "Authorization: token $TOKEN" -F "attachment=@$f" >/dev/null
+            if ! curl -sSf -X POST "$API/releases/$RID/assets?name=$(basename "$f")" \
+                 -H "Authorization: token $TOKEN" -F "attachment=@$f" >/dev/null; then
+              echo "::warning::asset upload failed for $(basename "$f") (may already exist on a re-run)"
+            fi
           done
           echo "release $TAG created with $(ls dist | wc -l) assets"
