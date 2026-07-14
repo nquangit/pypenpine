@@ -1,9 +1,15 @@
+from rich.console import Console
+
+from penpine.attack.models import Confidence, Finding, InjectionPoint, Payload
+from penpine.attack.results import Attempt, Report
+from penpine.attack.types import AttackType
 from penpine.render import (
     _confidence_style,
     _humanize_bytes,
     _status_style,
     _truncate,
     console,
+    render_report,
 )
 
 
@@ -40,3 +46,73 @@ def test_console_is_a_rich_console():
     from rich.console import Console
 
     assert isinstance(console, Console)
+
+
+def _point(expr="param:id"):
+    return InjectionPoint(expr=expr, kind="param", name="id")
+
+
+def _finding(evidence="SQL syntax error near", payload="' OR 1=1-- -"):
+    return Finding(
+        attack_type=AttackType.SQLI,
+        point=_point(),
+        payload=Payload(value=payload),
+        confidence=Confidence.HIGH,
+        evidence=evidence,
+    )
+
+
+class _Resp:
+    def __init__(self, status_code=500):
+        self.status_code = status_code
+
+
+def _rec():  # a recording console
+    return Console(record=True, width=100)
+
+
+def test_render_report_with_finding_shows_fields():
+    c = _rec()
+    att = Attempt(test_case=object(), response=_Resp(500), finding=_finding(), elapsed_ms=28.0)
+    report = Report(request=object(), attack_type=AttackType.SQLI, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "param:id" in out
+    assert "1=1" in out
+    assert "SQL syntax error" in out
+    assert "HIGH" in out
+    assert "sqli" in out
+
+
+def test_render_report_no_findings_shows_summary():
+    c = _rec()
+    att = Attempt(test_case=object(), response=_Resp(200))
+    report = Report(request=object(), attack_type=AttackType.XSS, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "sent=" in out
+    assert "found=0" in out
+
+
+def test_render_report_shows_errors():
+    c = _rec()
+    att = Attempt(test_case=object(), error=RuntimeError("connection refused"))
+    report = Report(request=object(), attack_type=AttackType.SQLI, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "errors:" in out
+    assert "connection refused" in out
+
+
+def test_render_report_escapes_markup_in_payload():
+    c = _rec()
+    att = Attempt(
+        test_case=object(),
+        response=_Resp(500),
+        finding=_finding(payload="[bold]pwn[/]"),
+        elapsed_ms=1.0,
+    )
+    report = Report(request=object(), attack_type=AttackType.SQLI, baseline=None, attempts=[att])
+    render_report(report, console=c)
+    out = c.export_text()
+    assert "[bold]pwn[/]" in out  # literal, not interpreted as markup
