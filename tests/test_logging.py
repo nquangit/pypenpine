@@ -25,3 +25,9 @@ def test_configure_logging_sets_level_and_handler():
     n = len(log.handlers)
     configure_logging(level=logging.INFO)
     assert len(log.handlers) == n
+
+
+def test_bracketed_log_does_not_raise():
+    configure_logging(level=logging.INFO)
+    # unbalanced markup in a normal (non-interceptor) log site must not crash
+    get_logger("penpine.x").info("server said: %s", "boom [/] [not-a-tag")

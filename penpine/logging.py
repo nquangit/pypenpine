@@ -13,14 +13,16 @@ _ROOT_NAME = "penpine"
 
 
 class _PlainFormatter(logging.Formatter):
-    """Formatter that strips rich markup so log files stay plain text."""
+    """Strip rich markup from markup-opted records so log files stay plain text."""
 
     def format(self, record: logging.LogRecord) -> str:
         s = super().format(record)
-        try:
-            return Text.from_markup(s).plain
-        except Exception:
-            return s
+        if getattr(record, "markup", False):
+            try:
+                return Text.from_markup(s).plain
+            except Exception:
+                return s
+        return s
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -39,7 +41,7 @@ def configure_logging(
     log.propagate = False
 
     if not any(getattr(h, "_penpine_console", False) for h in log.handlers):
-        handler = RichHandler(console=_console, markup=True, rich_tracebacks=True, show_path=False)
+        handler = RichHandler(console=_console, markup=False, rich_tracebacks=True, show_path=False)
         handler._penpine_console = True  # type: ignore[attr-defined]
         handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
         log.addHandler(handler)

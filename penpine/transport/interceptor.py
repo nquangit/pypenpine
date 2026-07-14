@@ -42,7 +42,13 @@ class RequestLogInterceptor(Interceptor):
 
     async def before_send(self, request):
         _request_start.set(time.perf_counter())
-        self._log.log(self._level, "[dim]->[/] %s %s", request.method, escape(request.target))
+        self._log.log(
+            self._level,
+            "[dim]->[/] %s %s",
+            escape(request.method),
+            escape(request.target),
+            extra={"markup": True},
+        )
         return request
 
     async def after_receive(self, request, response):
@@ -58,9 +64,10 @@ class RequestLogInterceptor(Interceptor):
             "[dim]<-[/] [%s]%s[/] %s %s   %s   %s",
             _status_style(status),
             status,
-            request.method,
+            escape(request.method),
             escape(request.target),
             size,
             timing,
+            extra={"markup": True},
         )
         return response
