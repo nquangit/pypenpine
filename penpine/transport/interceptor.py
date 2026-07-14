@@ -24,7 +24,14 @@ class RetrySignal(Exception):
 
 
 class RequestLogInterceptor(Interceptor):
-    """Log one line per request/response, e.g. `GET /path -> 200 (12 ms)`."""
+    """Log every request on send and its response on receive, e.g.
+    `-> GET /path` then `<- 200 GET /path (12 ms)`.
+
+    Logging the request in `before_send` (not only the response in
+    `after_receive`) is deliberate: a send that fails — a refused connection,
+    timeout, or TLS error — never reaches `after_receive`, so a response-only
+    logger would leave failed or unreachable requests invisible.
+    """
 
     def __init__(self, *, level: int = logging.INFO, logger_name: str = "penpine.transport"):
         self._level = level
@@ -32,6 +39,7 @@ class RequestLogInterceptor(Interceptor):
 
     async def before_send(self, request):
         _request_start.set(time.perf_counter())
+        self._log.log(self._level, "-> %s %s", request.method, request.target)
         return request
 
     async def after_receive(self, request, response):
@@ -41,5 +49,5 @@ class RequestLogInterceptor(Interceptor):
         except LookupError:
             timing = ""
         status = getattr(response, "status_code", "?")
-        self._log.log(self._level, "%s %s -> %s%s", request.method, request.target, status, timing)
+        self._log.log(self._level, "<- %s %s %s%s", status, request.method, request.target, timing)
         return response
