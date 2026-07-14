@@ -12,7 +12,7 @@ from penpine.transport.exceptions import (
     TransportError,
     TransportTimeout,
 )
-from penpine.transport.interceptor import Interceptor, RetrySignal
+from penpine.transport.interceptor import Interceptor, RequestLogInterceptor, RetrySignal
 from penpine.transport.pool import PoolConfig
 from penpine.transport.proxy import ProxyConfig
 from penpine.transport.timeouts import Timeouts
@@ -25,6 +25,7 @@ __all__ = [
     "ProxyConfig",
     "Timeouts",
     "Interceptor",
+    "RequestLogInterceptor",
     "RetrySignal",
     "TransportError",
     "ConnectError",
