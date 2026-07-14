@@ -17,6 +17,7 @@ from penpine.transport.pool import PoolConfig
 from penpine.transport.proxy import ProxyConfig
 from penpine.transport.timeouts import Timeouts
 from penpine.transport.tls import TLSConfig
+from penpine.transport.trace import InjectionInfo, current_injection
 
 __all__ = [
     "Engine",
@@ -27,6 +28,8 @@ __all__ = [
     "Interceptor",
     "RequestLogInterceptor",
     "RetrySignal",
+    "InjectionInfo",
+    "current_injection",
     "TransportError",
     "ConnectError",
     "TLSError",
