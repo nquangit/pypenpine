@@ -38,7 +38,10 @@ jobs:
           TWINE_USERNAME: nquangit
           TWINE_PASSWORD: ${{ secrets.PACKAGE_TOKEN }}
         run: |
-          twine upload --non-interactive --skip-existing \
+          # NOTE: the Gitea PyPI registry does not support twine's --skip-existing,
+          # so we do a plain upload (re-publishing an existing version fails, which
+          # is fine — bump the version instead of re-running the same one).
+          twine upload --non-interactive \
             --repository-url "${GITHUB_SERVER_URL}/api/packages/nquangit/pypi" \
             dist/*
 
