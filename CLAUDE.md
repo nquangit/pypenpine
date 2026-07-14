@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 penpine is a layered Python pentesting framework built **entirely on raw sockets
 and the standard library** — there is no third-party HTTP client (`requests`,
 `httpx`, `urllib` are all off-limits). HTTP/1.1 is parsed and serialized by hand
-so requests round-trip byte-for-byte and can be deliberately malformed. The only
-runtime dependency is `jsonpath-ng` (for JSON-body locators). Requires Python
-3.11+.
+so requests round-trip byte-for-byte and can be deliberately malformed. The core
+(raw sockets, HTTP parse/serialize, attack engine) is built on the standard
+library; the only non-stdlib runtime dependencies are `jsonpath-ng` (JSON-body
+locators) and `rich` (terminal output). Requires Python 3.11+.
 
 It is a **library you write code against**, not a menu-driven CLI. The CLI's only
 job is scaffolding new projects (`penpine new`).
