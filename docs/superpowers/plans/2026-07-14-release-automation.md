@@ -182,7 +182,10 @@ def main(argv: list[str] | None = None) -> int:
 
     text = _PYPROJECT.read_text()
     current = read_version(text)
-    new = next_version(current, args.spec)
+    try:
+        new = next_version(current, args.spec)
+    except ValueError as exc:
+        raise SystemExit(str(exc))
     tag = f"v{new}"
 
     if _git("tag", "--list", tag, capture=True).stdout.strip():
@@ -203,8 +206,9 @@ def main(argv: list[str] | None = None) -> int:
         print("push when ready:  git push origin main --follow-tags")
         return 0
 
-    _git("push", "origin", "main")
-    _git("push", "origin", tag)
+    # Atomic: main and the tag land together or not at all (a bump without a
+    # pushed tag would leave the release workflow un-triggered).
+    _git("push", "--atomic", "origin", "main", tag)
     print(f"pushed {tag}; the release workflow will build, publish, and release it.")
     return 0
 
@@ -274,7 +278,7 @@ jobs:
       - name: Verify tag matches pyproject version
         run: |
           set -euo pipefail
-          VERSION=$(python -c "import re,pathlib;print(re.search(r'version\s*=\s*\"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text()).group(1))")
+          VERSION=$(python -c "import re,pathlib;print(re.search(r'(?m)^version\s*=\s*\"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text()).group(1))")
           echo "pyproject version: $VERSION | tag: ${GITHUB_REF_NAME}"
           if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
             echo "::error::tag ${GITHUB_REF_NAME} does not match pyproject version v${VERSION}"
@@ -289,7 +293,7 @@ jobs:
           TWINE_USERNAME: nquangit
           TWINE_PASSWORD: ${{ secrets.PACKAGE_TOKEN }}
         run: |
-          twine upload --non-interactive \
+          twine upload --non-interactive --skip-existing \
             --repository-url "${GITHUB_SERVER_URL}/api/packages/nquangit/pypi" \
             dist/*
 
@@ -321,8 +325,10 @@ jobs:
           fi
           for f in dist/*; do
             echo "uploading asset: $(basename "$f")"
-            curl -sSf -X POST "$API/releases/$RID/assets?name=$(basename "$f")" \
-              -H "Authorization: token $TOKEN" -F "attachment=@$f" >/dev/null
+            if ! curl -sSf -X POST "$API/releases/$RID/assets?name=$(basename "$f")" \
+                 -H "Authorization: token $TOKEN" -F "attachment=@$f" >/dev/null; then
+              echo "::warning::asset upload failed for $(basename "$f") (may already exist on a re-run)"
+            fi
           done
           echo "release $TAG created with $(ls dist | wc -l) assets"
 ```
