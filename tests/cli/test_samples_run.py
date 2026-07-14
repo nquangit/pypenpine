@@ -24,8 +24,11 @@ SAMPLES = [
     "custom_interceptor",
     "data_sharing",
     "byo_test_cases",
+    "flow_basic",
+    "flow_attacks",
+    "flow_login",
 ]
-FINDING_SAMPLES = {"custom_module", "byo_test_cases"}
+FINDING_SAMPLES = {"custom_module", "byo_test_cases", "flow_attacks"}
 
 
 @pytest.fixture(scope="module")

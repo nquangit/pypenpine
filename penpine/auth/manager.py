@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 
+from penpine._sync import run_on_loop
 from penpine.auth.gate import RefreshGate
 from penpine.transport.engine import Engine
 
@@ -87,13 +88,11 @@ class SessionManager:
 
     def send_sync(self, request, **kwargs):
         self._ensure_loop()
-        return asyncio.run_coroutine_threadsafe(self.send(request, **kwargs), self._loop).result()
+        return run_on_loop(self._loop, self.send(request, **kwargs))
 
     def send_many_sync(self, requests, **kwargs):
         self._ensure_loop()
-        return asyncio.run_coroutine_threadsafe(
-            self.send_many(requests, **kwargs), self._loop
-        ).result()
+        return run_on_loop(self._loop, self.send_many(requests, **kwargs))
 
     def close(self):
         if self._loop is not None:

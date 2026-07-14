@@ -8,6 +8,7 @@ import inspect
 import threading
 import time
 
+from penpine._sync import run_on_loop
 from penpine.attack.analyze.analyzer import analyze
 from penpine.attack.exceptions import AttackConfigError
 from penpine.attack.models import Payload, TestCase
@@ -211,8 +212,7 @@ class Runner:
 
     def run_sync(self, request, **kwargs):
         self._ensure_loop()
-        future = asyncio.run_coroutine_threadsafe(self.run(request, **kwargs), self._loop)
-        return future.result()
+        return run_on_loop(self._loop, self.run(request, **kwargs))
 
     def close(self):
         if self._loop is not None:

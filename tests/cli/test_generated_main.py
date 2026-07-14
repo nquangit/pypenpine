@@ -55,6 +55,7 @@ def test_load_request_sets_meta(tmp_path):
 
 _RUN_CHECK = """
 import config, main
+from penpine import AttackType
 from penpine.attack.runner import Runner
 from penpine.core.parse.http_parser import parse_response
 
@@ -64,11 +65,12 @@ class _FakeSender:
         return parse_response(b"HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\n\\r\\nok")
 
 
-# run the attack path with a fake sender (no sockets); regression for
-# config/CLI strings vs the typed Runner.run(attack=AttackType)
+# run the attack path with a fake sender (no sockets)
 main.build_runner = lambda: Runner(sender=_FakeSender(), max_concurrency=2)
 config.TARGET_HOST = "example.test"
-main.main(argv=["sqli"])
+config.ATTACKS = [AttackType.SQLI]
+config.RESUME = False          # ignore any checkpoint from a prior run
+main.main()
 print("RUN_OK")
 """
 

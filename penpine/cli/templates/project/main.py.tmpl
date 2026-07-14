@@ -1,22 +1,27 @@
 """{{ project_name }} — penpine engagement entry point.
 
-Runnable end to end: loads requests/sample.http, registers the built-in attack
-modules plus this project's custom module, runs the configured attack(s), and
-prints findings. Configure the target in config.py before running.
+Config-driven (edit config.py); no CLI arguments. Runs config.ATTACKS against
+requests/sample.http with per-request logging, a resumable checkpoint, and clean
+Ctrl+C handling.
 
-    python main.py            # run config.ATTACKS
-    python main.py sqli xss   # override the attack list on the CLI
+    python main.py            # runs config.ATTACKS; resumes from checkpoint.json
+    # set RESUME = False in config.py to start over
 """
-import sys
 
-from penpine import AttackType, Engine, Runner
+import config
+from checkpoint import Checkpoint
+
+from penpine import Engine, Runner, configure_logging, get_logger
 from penpine.attack.modules import register_builtins
 from penpine.core.message import Request
+from penpine.transport import RequestLogInterceptor
 from penpine.transport.proxy import ProxyConfig
 from penpine.transport.tls import TLSConfig
 
-import config
 from samples.custom_module import register as register_custom
+
+# Child of the "penpine" logger so configure_logging's handlers + level apply.
+log = get_logger("penpine.project")
 
 
 def load_request():
@@ -25,8 +30,6 @@ def load_request():
     raw = raw.replace(b"__TARGET_HOST__", config.TARGET_HOST.encode())
     host, _, port_s = config.TARGET_HOST.partition(":")
     port = int(port_s) if port_s else (443 if config.TARGET_SCHEME == "https" else 80)
-    # meta tells the Engine where/how to connect; scheme == "https" enables TLS
-    # (cert verification is controlled separately by config.TLS_VERIFY).
     return Request.from_raw(raw, scheme=config.TARGET_SCHEME, host=host, port=port)
 
 
@@ -34,21 +37,31 @@ def build_runner():
     engine_kw = {"tls": TLSConfig(verify=config.TLS_VERIFY)}
     if config.PROXY:
         engine_kw["proxy"] = ProxyConfig.from_url(config.PROXY)
+    if config.LOG_REQUESTS:
+        engine_kw["interceptors"] = [RequestLogInterceptor()]
     return Runner(sender=Engine(**engine_kw), max_concurrency=config.CONCURRENCY)
 
 
-def main(argv=None):
-    attacks = (argv if argv is not None else sys.argv[1:]) or config.ATTACKS
+def main():
+    configure_logging(level=config.LOG_LEVEL, log_file=config.LOG_FILE)
     register_builtins()
     register_custom()
     request = load_request()
     runner = build_runner()
+    checkpoint = Checkpoint(config.CHECKPOINT_FILE, resume=config.RESUME)
     try:
-        for attack in attacks:
-            report = runner.run_sync(request, attack=AttackType.from_str(attack))
-            print(f"\n== {attack} ==  {report.summary()}")
+        for attack in config.ATTACKS:
+            item = attack.value
+            if checkpoint.is_done(item):
+                log.info("skip %s (already done)", item)
+                continue
+            report = runner.run_sync(request, attack=attack)
+            print(f"\n== {item} ==  {report.summary()}")
             for finding in report.findings:
                 print(f"  [{finding.confidence.name}] {finding.point.expr} -> {finding.evidence}")
+            checkpoint.mark_done(item)
+    except KeyboardInterrupt:
+        log.warning("interrupted; progress saved to %s (rerun to resume)", config.CHECKPOINT_FILE)
     finally:
         runner.close()
 

@@ -20,10 +20,11 @@ If you scaffolded with `--no-venv`, create it yourself:
 2. Run the engagement:
 
        python main.py            # runs config.ATTACKS against requests/sample.http
-       python main.py sqli xss   # override the attack list
 
-`main.py` registers the built-in modules plus this project's custom module,
-runs each attack, and prints findings.
+`main.py` registers the built-in modules plus this project's custom module, runs
+each attack in `config.ATTACKS`, logs each request, checkpoints after each
+attack, and prints findings. It stops cleanly on Ctrl+C — rerun to resume from
+`config.CHECKPOINT_FILE` (set `RESUME = False` in `config.py` to start over).
 
 ## Extending
 
@@ -40,6 +41,9 @@ point — run any directly with `python -m samples.<name>`:
 | `samples/custom_interceptor.py` | a transport `Interceptor` |
 | `samples/data_sharing.py` | sharing captured data between two `Identity` objects (IDOR) |
 | `samples/byo_test_cases.py` | bringing your own `TestCase`s to the `Runner` |
+| `samples/flow_basic.py` | a multi-step `Flow` with capture + templating |
+| `samples/flow_attacks.py` | flow-structural attacks (skip-a-step) via `FlowRunner` |
+| `samples/flow_login.py` | multi-request login via `FlowLoginProvider` |
 
 ## Legal
 
