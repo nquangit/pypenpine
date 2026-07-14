@@ -7,7 +7,7 @@ license = { text = "MIT" }
 authors = [{ name = "nquangit", email = "huynhngocq5@gmail.com" }]
 keywords = ["pentesting", "security", "http", "fuzzing", "web-security"]
 requires-python = ">=3.11"
-dependencies = ["jsonpath-ng>=1.6"]
+dependencies = ["jsonpath-ng>=1.6", "rich>=13"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
