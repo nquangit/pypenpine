@@ -130,3 +130,10 @@ seam (custom module, validator, payload, interceptor, rule, auth, data-sharing)
 - Ships `py.typed` — keep annotations complete on public surfaces.
 - **Authorized testing only.** This framework is for systems you own or have
   written permission to assess.
+- **Versioning & releases.** SemVer; releases are git tags `vX.Y.Z`. **Every merge
+  to `main` is followed by a version bump: `python scripts/bump_version.py
+  <patch|minor|major>`**, which rewrites `pyproject.toml`, commits, tags, and pushes.
+  The tag push triggers `.gitea/workflows/release.yml` (build → publish to the Gitea
+  PyPI registry → create a release). Do not hand-edit the version or create tags
+  manually. Publishing needs a `PACKAGE_TOKEN` repo secret (Gitea PAT with
+  `write:package` + `write:repository`) and Actions enabled on the repo.
