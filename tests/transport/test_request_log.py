@@ -51,12 +51,19 @@ async def test_request_and_response_logged_and_passthrough(caplog):
 
 async def test_target_with_brackets_is_escaped(caplog):
     ic = RequestLogInterceptor()
-    req = Request.from_url("http://t/path?q=%5Bbold%5D")  # decodes to [bold]
+    # A literal path segment preserves brackets verbatim in .target (unlike a
+    # percent-encoded query, which stays "%5Bbold%5D" and never round-trips to
+    # a literal "[bold]"). This makes the assertion below discriminating.
+    req = Request.from_url("http://t/path/[bold]")
+    assert "[bold]" in req.target  # sanity: literal brackets actually present
     with caplog.at_level(logging.INFO, logger="penpine.transport"):
         await ic.before_send(req)
     text = "\n".join(r.getMessage() for r in caplog.records)
-    # escaped for rich markup: the raw message carries a backslash-escaped bracket
-    assert "\\[" in text or "[bold]" not in text
+    # escaped for rich markup: the raw message carries a backslash-escaped bracket.
+    # If escape() were removed from the interceptor, text would contain the bare
+    # "[bold]" without a preceding backslash instead.
+    assert "\\[bold]" in text
+    assert "[bold]" not in text.replace("\\[bold]", "")
 
 
 async def test_request_log_interceptor_reexported():
