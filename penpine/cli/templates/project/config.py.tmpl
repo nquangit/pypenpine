@@ -1,14 +1,14 @@
-"""{{ project_name }} — configuration (pure Python; no external config files)."""
+"""{{ project_name }} — configuration (pure Python; no CLI flags, no config files)."""
 
-# The target the sample request is sent to. CHANGE THESE to a system you are
+from penpine import AttackType
+
+# Target the sample request is sent to. CHANGE THESE to a system you are
 # AUTHORIZED to test. Defaults to a local listener so a blind run is inert.
-#   TARGET_SCHEME selects http vs https — https makes the Engine use TLS.
-#   TARGET_HOST is the connection host, optionally with :port.
-TARGET_SCHEME = "http"          # "http" or "https"
+TARGET_SCHEME = "http"          # "http" or "https"  (https makes the Engine use TLS)
 TARGET_HOST = "127.0.0.1:8000"  # host or host:port
 
-# Attacks to run by default — names of registered modules.
-ATTACKS = ["sqli", "xss"]
+# Attacks to run by default — typed AttackType values (not strings).
+ATTACKS = [AttackType.SQLI, AttackType.XSS]
 
 # Max concurrent in-flight requests.
 CONCURRENCY = 10
@@ -17,6 +17,14 @@ CONCURRENCY = 10
 PROXY = None
 
 # Verify TLS certificates (only applies when TARGET_SCHEME == "https").
-# False is common when testing self-signed / lab targets; True enforces a
-# valid certificate chain.
 TLS_VERIFY = False
+
+# --- Logging (config-in-code) ---
+LOG_LEVEL = "INFO"      # "DEBUG" | "INFO" | "WARNING" | "ERROR"
+LOG_REQUESTS = True     # log one line per request via RequestLogInterceptor
+LOG_FILE = None         # e.g. "run.log" to ALSO write logs to a file
+
+# --- Checkpoint / resume ---
+RESUME = True                    # skip work items already recorded as done
+CHECKPOINT_FILE = "checkpoint.json"
+# To start over from scratch, set RESUME = False (ignores + overwrites the checkpoint).
