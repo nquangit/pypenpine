@@ -1,0 +1,76 @@
+name: release
+# Publish to the Gitea PyPI registry and create a release when a version tag is
+# pushed. Requires a repo/org secret PACKAGE_TOKEN (Gitea PAT with write:package
+# and write:repository). Cut a release with: python scripts/bump_version.py <level>
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build tooling
+        run: pip install build twine
+
+      - name: Verify tag matches pyproject version
+        run: |
+          set -euo pipefail
+          VERSION=$(python -c "import re,pathlib;print(re.search(r'version\s*=\s*\"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text()).group(1))")
+          echo "pyproject version: $VERSION | tag: ${GITHUB_REF_NAME}"
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match pyproject version v${VERSION}"
+            exit 1
+          fi
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Publish to Gitea PyPI registry
+        env:
+          TWINE_USERNAME: nquangit
+          TWINE_PASSWORD: ${{ secrets.PACKAGE_TOKEN }}
+        run: |
+          twine upload --non-interactive \
+            --repository-url "${GITHUB_SERVER_URL}/api/packages/nquangit/pypi" \
+            dist/*
+
+      - name: Create Gitea release with assets
+        env:
+          TOKEN: ${{ secrets.PACKAGE_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          API="${GITHUB_SERVER_URL}/api/v1/repos/${GITHUB_REPOSITORY}"
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          if [ -n "${PREV}" ]; then
+            BODY=$(git log --pretty='- %s' "${PREV}..${TAG}")
+          else
+            BODY="Initial release."
+          fi
+          PAYLOAD=$(jq -n --arg tag "$TAG" --arg body "$BODY" \
+            '{tag_name:$tag, name:$tag, body:$body, draft:false, prerelease:false}')
+          # Create the release; if it already exists (re-run), look it up by tag.
+          RID=$(curl -sS -X POST "$API/releases" \
+            -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+            -d "$PAYLOAD" | jq -r '.id // empty')
+          if [ -z "$RID" ]; then
+            RID=$(curl -sS "$API/releases/tags/$TAG" \
+              -H "Authorization: token $TOKEN" | jq -r '.id // empty')
+          fi
+          if [ -z "$RID" ]; then
+            echo "::error::could not create or find release for $TAG"; exit 1
+          fi
+          for f in dist/*; do
+            echo "uploading asset: $(basename "$f")"
+            curl -sSf -X POST "$API/releases/$RID/assets?name=$(basename "$f")" \
+              -H "Authorization: token $TOKEN" -F "attachment=@$f" >/dev/null
+          done
+          echo "release $TAG created with $(ls dist | wc -l) assets"
