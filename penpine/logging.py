@@ -28,13 +28,26 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def configure_logging(level: int = logging.INFO) -> logging.Logger:
-    """Attach a single colored console handler to the penpine root logger."""
+def configure_logging(level=logging.INFO, *, log_file=None) -> logging.Logger:
+    """Attach a colored console handler (and optionally a plain file handler) to
+    the penpine root logger. `level` may be an int or a level-name string.
+    Idempotent: repeat calls do not duplicate handlers."""
     log = logging.getLogger(_ROOT_NAME)
     log.setLevel(level)
     log.propagate = False
-    if not log.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(_ColorFormatter("%(levelname)s %(name)s: %(message)s"))
-        log.addHandler(handler)
+
+    if not any(getattr(h, "_penpine_console", False) for h in log.handlers):
+        console = logging.StreamHandler()
+        console._penpine_console = True  # type: ignore[attr-defined]
+        console.setFormatter(_ColorFormatter("%(levelname)s %(name)s: %(message)s"))
+        log.addHandler(console)
+
+    if log_file is not None:
+        target = str(log_file)
+        if not any(getattr(h, "_penpine_file", None) == target for h in log.handlers):
+            file_handler = logging.FileHandler(target)
+            file_handler._penpine_file = target  # type: ignore[attr-defined]
+            file_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+            log.addHandler(file_handler)
+
     return log
