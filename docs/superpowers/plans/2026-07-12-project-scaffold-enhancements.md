@@ -260,7 +260,7 @@ Expected: FAIL — `configure_logging()` has no `log_file` keyword (TypeError).
 In `penpine/logging.py`, replace `configure_logging` with:
 
 ```python
-def configure_logging(level=logging.INFO, *, log_file=None) -> logging.Logger:
+def configure_logging(level: int | str = logging.INFO, *, log_file: str | None = None) -> logging.Logger:
     """Attach a colored console handler (and optionally a plain file handler) to
     the penpine root logger. `level` may be an int or a level-name string.
     Idempotent: repeat calls do not duplicate handlers."""
@@ -369,7 +369,7 @@ Append at the end of the file:
 class RequestLogInterceptor(Interceptor):
     """Log one line per request/response, e.g. `GET /path -> 200 (12 ms)`."""
 
-    def __init__(self, *, level=logging.INFO, logger_name="penpine.transport"):
+    def __init__(self, *, level: int = logging.INFO, logger_name: str = "penpine.transport"):
         self._level = level
         self._log = get_logger(logger_name)
 
@@ -555,7 +555,8 @@ from penpine.transport.tls import TLSConfig
 
 from samples.custom_module import register as register_custom
 
-log = get_logger("project")
+# Child of the "penpine" logger so configure_logging's handlers + level apply.
+log = get_logger("penpine.project")
 
 
 def load_request():
