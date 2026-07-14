@@ -44,6 +44,7 @@ def configure_logging(
         handler = RichHandler(console=_console, markup=False, rich_tracebacks=True, show_path=False)
         handler._penpine_console = True  # type: ignore[attr-defined]
         handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+        handler.addFilter(lambda record: not getattr(record, "_penpine_request", False))
         log.addHandler(handler)
 
     if log_file is not None:

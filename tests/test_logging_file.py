@@ -58,3 +58,12 @@ def test_file_preserves_nonmarkup_brackets(tmp_path):
         h.flush()
     text = path.read_text()
     assert "[bold]pwn[/]" in text  # non-markup record: brackets preserved verbatim
+
+
+def test_file_handler_keeps_request_records(tmp_path):
+    path = tmp_path / "run.log"
+    configure_logging(level="INFO", log_file=str(path))
+    get_logger("penpine.transport").info("200 GET /x (12 ms)", extra={"_penpine_request": True})
+    for h in logging.getLogger(_ROOT).handlers:
+        h.flush()
+    assert "200 GET /x" in path.read_text()  # file keeps the audit line
