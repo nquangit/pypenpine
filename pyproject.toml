@@ -1,6 +1,6 @@
 [project]
 name = "penpine"
-version = "0.3.2"
+version = "0.3.3"
 description = "A layered Python pentesting framework"
 readme = "README.md"
 license = { text = "MIT" }
