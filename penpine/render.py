@@ -139,7 +139,7 @@ class RequestTableRenderer:
         ("STATUS", 6, "right", ""),
         ("METHOD", 7, "left", "bold cyan"),
         ("SIZE", 8, "right", "dim"),
-        ("TOOK", 7, "right", "dim"),
+        ("TOOK", 8, "right", "dim"),
     )
 
     def __init__(self, *, console: Console = console):
@@ -167,7 +167,8 @@ class RequestTableRenderer:
     def _detail(self, url: object, injection: object) -> Text:
         if injection is not None:
             locator = str(getattr(injection, "locator", ""))
-            value = str(getattr(injection, "value", ""))
+            # collapse newlines so a CRLF payload can't split the row / forge lines
+            value = str(getattr(injection, "value", "")).replace("\r", " ").replace("\n", " ")
             return Text.assemble(
                 (str(url) + "  ", "dim"),
                 (locator, "magenta"),

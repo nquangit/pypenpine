@@ -15,6 +15,15 @@ _request_start: contextvars.ContextVar[float] = contextvars.ContextVar("penpine_
 _row_rendered: contextvars.ContextVar[bool] = contextvars.ContextVar("penpine_row_rendered")
 
 
+def _audit_suffix(injection) -> str:
+    """`  locator=value` for the file-audit line, or "" if no injection.
+    Newlines in the value are collapsed so a CRLF payload can't forge a log line."""
+    if not injection:
+        return ""
+    value = str(injection.value).replace("\r", " ").replace("\n", " ")
+    return f"  {injection.locator}={value}"
+
+
 class Interceptor:
     async def before_send(self, request):
         return request
@@ -73,7 +82,7 @@ class RequestLogInterceptor(Interceptor):
                 timestamp=ts,
                 injection=injection,
             )
-            inj = f"  {injection.locator}={injection.value}" if injection else ""
+            inj = _audit_suffix(injection)
             self._log.log(
                 self._level,
                 "%s %s %s%s (%s)",
@@ -109,7 +118,7 @@ class RequestLogInterceptor(Interceptor):
                 injection=injection,
                 failed=True,
             )
-            inj = f"  {injection.locator}={injection.value}" if injection else ""
+            inj = _audit_suffix(injection)
             self._log.log(
                 self._level,
                 "ERR %s %s%s (failed: %s)",
