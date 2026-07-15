@@ -30,11 +30,13 @@ class _FakeWriter:
     def __init__(self, transport):
         self.transport = transport
         self.close_called = False
+        self.wait_closed_awaited = False
 
     def close(self):
         self.close_called = True
 
     async def wait_closed(self):
+        self.wait_closed_awaited = True
         return None
 
 
@@ -45,6 +47,8 @@ async def test_tls_stream_close_aborts_and_skips_graceful_close():
     await stream.close()
     assert transport.aborted is True  # aborted -> no reading TLS shutdown
     assert writer.close_called is False
+    # wait_closed() is deliberately NOT awaited: its shutdown read is what raises
+    assert writer.wait_closed_awaited is False
     assert stream.closed is True
 
 
@@ -55,6 +59,7 @@ async def test_plain_stream_close_uses_graceful_close():
     await stream.close()
     assert transport.aborted is False
     assert writer.close_called is True  # plain HTTP keeps a graceful close
+    assert writer.wait_closed_awaited is True
 
 
 async def test_close_is_resilient_when_transport_missing():

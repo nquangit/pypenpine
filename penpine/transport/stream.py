@@ -122,19 +122,23 @@ class AsyncioByteStream(ByteStream):
 
     async def close(self) -> None:
         self._closed = True
-        # For a TLS connection, abort() instead of a graceful close(): close()
-        # drives asyncio's SSL shutdown *flush that reads* (sslproto _do_flush ->
-        # _do_read), which raises SSLEOFError on OpenSSL 3.x when the peer skips
-        # close_notify (common through proxies like Burp, and with TLS 1.3 session
-        # tickets left in the pipe). We have already read the full response and
-        # never reuse a one-shot connection, so a graceful close_notify handshake
-        # buys nothing — aborting skips the shutdown read entirely.
         transport = getattr(self._writer, "transport", None)
-        with contextlib.suppress(Exception):
-            if transport is not None and transport.get_extra_info("ssl_object") is not None:
+        if transport is not None and transport.get_extra_info("ssl_object") is not None:
+            # TLS one-shot connection: abort instead of a graceful close. A
+            # graceful close() — and wait_closed() — drives asyncio's SSL shutdown
+            # *flush that reads* (sslproto _start_shutdown -> _do_flush -> _do_read
+            # -> sslobj.read), which raises SSLEOFError on OpenSSL 3.x whenever the
+            # peer skips a close_notify alert (Burp, Cloudflare, TLS 1.3 session
+            # tickets left in the pipe). We already have the full response and
+            # never reuse the connection, so a graceful close_notify handshake buys
+            # nothing. abort() force-closes with the SSL state set to UNWRAPPED and
+            # performs no read; we deliberately do NOT await wait_closed(), because
+            # its shutdown read is exactly what raises.
+            with contextlib.suppress(Exception):
                 transport.abort()
-            else:
-                self._writer.close()
+            return
+        with contextlib.suppress(Exception):
+            self._writer.close()
         with contextlib.suppress(Exception):
             await self._writer.wait_closed()
 
