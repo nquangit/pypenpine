@@ -189,7 +189,7 @@ def test_request_table_folds_long_url():
 
 
 def test_request_table_failed_row_and_escaping():
-    c = _table_console()
+    c = Console(record=True, width=100)  # wide enough that the detail doesn't wrap mid-word
     r = RequestTableRenderer(console=c)
     r.row(
         status="ERR",
@@ -214,8 +214,62 @@ def test_request_table_renderer_reexported():
 def test_request_table_escapes_size_and_timing():
     c = Console(record=True, width=60)
     r = RequestTableRenderer(console=c)
-    # markup kept short enough to fit the fixed-width SIZE/TIME columns on one
-    # line, so wrapping doesn't split the literal brackets across rows.
-    r.row(status=200, method="GET", size="[i]1B[/]", timing="[i]9s[/]", url="/x")
+    # markup kept short enough to fit the fixed-width SIZE (8) / TOOK (7) columns
+    # on one line, so wrapping doesn't split the literal brackets across rows.
+    r.row(status=200, method="GET", size="[i]1B[/]", timing="[b]9[/]", url="/x")
     text = c.export_text()
-    assert "[i]1B[/]" in text and "[i]9s[/]" in text
+    assert "[i]1B[/]" in text and "[b]9[/]" in text
+
+
+def test_request_table_shows_timestamp_and_header_labels():
+    c = Console(record=True, width=80)
+    r = RequestTableRenderer(console=c)
+    r.row(status=200, method="GET", size="1 B", timing="1 ms", url="/x", timestamp="20:56:11")
+    text = c.export_text()
+    assert "20:56:11" in text
+    assert "TIME" in text and "TOOK" in text  # header renamed/added
+
+
+def test_request_table_shows_injection_location_and_value():
+    from penpine.transport.trace import InjectionInfo
+
+    c = Console(record=True, width=80)
+    r = RequestTableRenderer(console=c)
+    r.row(
+        status=200,
+        method="POST",
+        size="1 B",
+        timing="1 ms",
+        url="/api/login",
+        timestamp="20:56:11",
+        injection=InjectionInfo(locator="json:$.user", value="' OR 1=1"),
+    )
+    text = c.export_text()
+    assert "json:$.user" in text
+    assert "' OR 1=1" in text
+    assert "=" in text
+
+
+def test_request_table_injection_value_escaped():
+    from penpine.transport.trace import InjectionInfo
+
+    c = Console(record=True, width=80)
+    r = RequestTableRenderer(console=c)
+    r.row(
+        status=200,
+        method="GET",
+        size="1 B",
+        timing="1 ms",
+        url="/x",
+        timestamp="t",
+        injection=InjectionInfo(locator="param:q", value="[bold]pwn[/]"),
+    )
+    assert "[bold]pwn[/]" in c.export_text()  # literal, markup not interpreted
+
+
+def test_request_table_no_injection_shows_url_only():
+    c = Console(record=True, width=80)
+    r = RequestTableRenderer(console=c)
+    r.row(status=200, method="GET", size="1 B", timing="1 ms", url="/only-url", timestamp="t")
+    text = c.export_text()
+    assert "/only-url" in text and "=" not in text.split("/only-url")[1]

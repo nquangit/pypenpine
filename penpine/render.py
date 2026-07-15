@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from rich.console import Console
 from rich.markup import escape
@@ -18,9 +18,9 @@ _MAX_FIELD = 200
 _CONFIDENCE_STYLES = {"HIGH": "bold red", "MEDIUM": "yellow", "LOW": "dim cyan"}
 
 
-def _status_style(status: object) -> str:
+def _status_style(status: Any) -> str:
     try:
-        code = int(status)  # type: ignore[arg-type]
+        code = int(status)
     except (TypeError, ValueError):
         return "red"
     if 200 <= code < 300:
@@ -51,7 +51,7 @@ def _truncate(s: object, limit: int = _MAX_FIELD) -> str:
     return s if len(s) <= limit else s[: limit - 1] + "…"
 
 
-def _finding_panel(finding: object, attempt: object) -> Panel:
+def _finding_panel(finding: Any, attempt: Any) -> Panel:
     conf_name = getattr(finding.confidence, "name", str(finding.confidence))
     style = _confidence_style(finding.confidence)
     attack = getattr(finding.attack_type, "value", finding.attack_type)
@@ -75,7 +75,7 @@ def _finding_panel(finding: object, attempt: object) -> Panel:
     return Panel(grid, title=title, title_align="left", border_style=style, expand=False)
 
 
-def render_report(report: object, *, console: Console = console) -> None:
+def render_report(report: Any, *, console: Console = console) -> None:
     summary = report.summary()
     attack = getattr(report.attack_type, "value", report.attack_type)
     found = summary["found"]
@@ -95,7 +95,7 @@ def render_report(report: object, *, console: Console = console) -> None:
             console.print(f"[dim]  - {escape(str(att.error))}[/]")
 
 
-def render_run_summary(results: object, *, console: Console = console) -> None:
+def render_run_summary(results: Any, *, console: Console = console) -> None:
     table = Table(title="run summary", title_justify="left", expand=False)
     table.add_column("target / attack")
     table.add_column("sent", justify="right")
@@ -129,15 +129,17 @@ def render_run_summary(results: object, *, console: Console = console) -> None:
 
 
 class RequestTableRenderer:
-    """Print request activity as an aligned table: STATUS METHOD SIZE TIME URL.
-    Fixed-width leading columns give cross-row alignment; the URL column folds.
+    """Print request activity as an aligned table: TIME STATUS METHOD SIZE TOOK URL.
+    Fixed-width leading columns give cross-row alignment; the trailing column folds
+    and shows the URL, or (when an injection is given) ``url  locator = value``.
     A dim header row is printed once, before the first data row."""
 
-    _COLS: tuple[tuple[str, int, Literal["left", "right"]], ...] = (
-        ("STATUS", 6, "right"),
-        ("METHOD", 7, "left"),
-        ("SIZE", 8, "right"),
-        ("TIME", 8, "right"),
+    _COLS: tuple[tuple[str, int, Literal["left", "right"], str], ...] = (
+        ("TIME", 8, "left", "dim"),
+        ("STATUS", 6, "right", ""),
+        ("METHOD", 7, "left", "bold cyan"),
+        ("SIZE", 8, "right", "dim"),
+        ("TOOK", 8, "right", "dim"),
     )
 
     def __init__(self, *, console: Console = console):
@@ -146,9 +148,9 @@ class RequestTableRenderer:
 
     def _grid(self) -> Table:
         grid = Table.grid(padding=(0, 1))
-        for _, width, justify in self._COLS:
-            grid.add_column(width=width, justify=justify)
-        grid.add_column(overflow="fold")  # URL, flexes to remaining width
+        for _, width, justify, style in self._COLS:
+            grid.add_column(width=width, justify=justify, style=style or None)
+        grid.add_column(overflow="fold")  # URL / injection detail, flexes + folds
         return grid
 
     def _ensure_header(self) -> None:
@@ -156,10 +158,24 @@ class RequestTableRenderer:
             return
         grid = self._grid()
         grid.add_row(
-            *[Text(name, style="dim") for name, _, _ in self._COLS], Text("URL", style="dim")
+            *[Text(name, style="dim") for name, _, _, _ in self._COLS],
+            Text("URL", style="dim"),
         )
         self._console.print(grid)
         self._header_shown = True
+
+    def _detail(self, url: object, injection: object) -> Text:
+        if injection is not None:
+            locator = str(getattr(injection, "locator", ""))
+            # collapse newlines so a CRLF payload can't split the row / forge lines
+            value = str(getattr(injection, "value", "")).replace("\r", " ").replace("\n", " ")
+            return Text.assemble(
+                (str(url) + "  ", "dim"),
+                (locator, "magenta"),
+                (" = ", "dim"),
+                (_truncate(value, 500), "bold yellow"),
+            )
+        return Text(_truncate(url, 500))
 
     def row(
         self,
@@ -169,16 +185,19 @@ class RequestTableRenderer:
         size: object,
         timing: object,
         url: object,
+        timestamp: object = "",
+        injection: object = None,
         failed: bool = False,
     ) -> None:
         self._ensure_header()
-        style = "red" if failed else _status_style(status)
+        status_style = "bold red" if failed else "bold " + _status_style(status)
         grid = self._grid()
         grid.add_row(
-            Text(str(status), style=style),
+            escape(str(timestamp)),
+            Text(str(status), style=status_style),
             escape(str(method)),
             escape(str(size)),
             escape(str(timing)),
-            escape(_truncate(url, 500)),
+            self._detail(url, injection),
         )
         self._console.print(grid)

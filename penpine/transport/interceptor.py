@@ -5,12 +5,23 @@ from __future__ import annotations
 import contextvars
 import logging
 import time
+from datetime import datetime
 
 from penpine.logging import get_logger
 from penpine.render import RequestTableRenderer, _humanize_bytes
+from penpine.transport.trace import current_injection
 
 _request_start: contextvars.ContextVar[float] = contextvars.ContextVar("penpine_request_start")
 _row_rendered: contextvars.ContextVar[bool] = contextvars.ContextVar("penpine_row_rendered")
+
+
+def _audit_suffix(injection) -> str:
+    """`  locator=value` for the file-audit line, or "" if no injection.
+    Newlines in the value are collapsed so a CRLF payload can't forge a log line."""
+    if not injection:
+        return ""
+    value = str(injection.value).replace("\r", " ").replace("\n", " ")
+    return f"  {injection.locator}={value}"
 
 
 class Interceptor:
@@ -60,19 +71,25 @@ class RequestLogInterceptor(Interceptor):
             timing = self._timing()
             status = getattr(response, "status_code", "?")
             size = _humanize_bytes(len(getattr(response, "body", b"") or b""))
+            ts = datetime.now().strftime("%H:%M:%S")
+            injection = current_injection.get()
             self._table.row(
                 status=status,
                 method=request.method,
                 size=size,
                 timing=timing,
                 url=request.target,
+                timestamp=ts,
+                injection=injection,
             )
+            inj = _audit_suffix(injection)
             self._log.log(
                 self._level,
-                "%s %s %s (%s)",
+                "%s %s %s%s (%s)",
                 status,
                 request.method,
                 request.target,
+                inj,
                 timing,
                 extra={"_penpine_request": True},
             )
@@ -89,19 +106,25 @@ class RequestLogInterceptor(Interceptor):
         if self._log.isEnabledFor(self._level):
             timing = self._timing()
             summary = f"{type(exc).__name__}: {exc}"
+            ts = datetime.now().strftime("%H:%M:%S")
+            injection = current_injection.get()
             self._table.row(
                 status="ERR",
                 method=request.method,
                 size="—",
                 timing=timing,
                 url=f"{request.target}  · {summary}",
+                timestamp=ts,
+                injection=injection,
                 failed=True,
             )
+            inj = _audit_suffix(injection)
             self._log.log(
                 self._level,
-                "ERR %s %s (failed: %s)",
+                "ERR %s %s%s (failed: %s)",
                 request.method,
                 request.target,
+                inj,
                 summary,
                 extra={"_penpine_request": True},
             )
