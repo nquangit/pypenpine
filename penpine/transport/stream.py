@@ -122,7 +122,19 @@ class AsyncioByteStream(ByteStream):
 
     async def close(self) -> None:
         self._closed = True
-        self._writer.close()
+        # For a TLS connection, abort() instead of a graceful close(): close()
+        # drives asyncio's SSL shutdown *flush that reads* (sslproto _do_flush ->
+        # _do_read), which raises SSLEOFError on OpenSSL 3.x when the peer skips
+        # close_notify (common through proxies like Burp, and with TLS 1.3 session
+        # tickets left in the pipe). We have already read the full response and
+        # never reuse a one-shot connection, so a graceful close_notify handshake
+        # buys nothing — aborting skips the shutdown read entirely.
+        transport = getattr(self._writer, "transport", None)
+        with contextlib.suppress(Exception):
+            if transport is not None and transport.get_extra_info("ssl_object") is not None:
+                transport.abort()
+            else:
+                self._writer.close()
         with contextlib.suppress(Exception):
             await self._writer.wait_closed()
 
