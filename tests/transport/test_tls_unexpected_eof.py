@@ -31,9 +31,24 @@ def _self_signed(tmp_path: Path):
 
     cert, key = tmp_path / "c.pem", tmp_path / "k.pem"
     subprocess.run(
-        ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-keyout", str(key),
-         "-out", str(cert), "-days", "1", "-nodes", "-subj", "/CN=t"],
-        check=True, capture_output=True,
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(key),
+            "-out",
+            str(cert),
+            "-days",
+            "1",
+            "-nodes",
+            "-subj",
+            "/CN=t",
+        ],
+        check=True,
+        capture_output=True,
     )
     return cert, key
 
@@ -43,9 +58,9 @@ def _handshake(client, server, cin, cout, sin, sout):
         for obj in (client, server):
             with contextlib.suppress(ssl.SSLWantReadError):
                 obj.do_handshake()
-        if (d := cout.read()):
+        if d := cout.read():
             sin.write(d)
-        if (d := sout.read()):
+        if d := sout.read():
             cin.write(d)
         try:
             client.do_handshake()
