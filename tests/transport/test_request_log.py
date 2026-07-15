@@ -110,3 +110,37 @@ async def test_request_log_interceptor_reexported():
     from penpine.transport import RequestLogInterceptor as Exported
 
     assert Exported is RequestLogInterceptor
+
+
+async def test_row_and_audit_include_injection(caplog):
+    from penpine.transport.trace import InjectionInfo, current_injection
+
+    ic = RequestLogInterceptor()
+    rec = _recording(ic)
+    req = Request.from_url("http://t/api/login")
+    resp = parse_response(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+    tok = current_injection.set(InjectionInfo(locator="json:$.user", value="' OR 1=1"))
+    try:
+        with caplog.at_level(logging.INFO, logger="penpine.transport"):
+            await ic.before_send(req)
+            await ic.after_receive(req, resp)
+    finally:
+        current_injection.reset(tok)
+    text = rec.export_text()
+    assert "json:$.user" in text and "' OR 1=1" in text  # rendered row
+    audit = next(r for r in caplog.records if getattr(r, "_penpine_request", False))
+    assert "json:$.user" in audit.getMessage()  # audit line carries it too
+
+
+async def test_row_has_timestamp(caplog):
+    ic = RequestLogInterceptor()
+    rec = _recording(ic)
+    req = Request.from_url("http://t/x")
+    resp = parse_response(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+    with caplog.at_level(logging.INFO, logger="penpine.transport"):
+        await ic.before_send(req)
+        await ic.after_receive(req, resp)
+    # HH:MM:SS pattern present
+    import re
+
+    assert re.search(r"\d\d:\d\d:\d\d", rec.export_text())
