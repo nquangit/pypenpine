@@ -99,7 +99,11 @@ class Engine:
                     await conn.send_bytes(req.serialize())
                     resp = await conn.read_response(req.method)
                 finally:
-                    await conn.close()
+                    # Teardown is cleanup: a close error (e.g. an OpenSSL 3.x
+                    # SSLEOFError from a peer that skips close_notify) must never
+                    # mask an already-read response or a genuine send/read error.
+                    with contextlib.suppress(Exception):
+                        await conn.close()
             else:
                 resp = await self._send_pooled((meta.host, meta.port, use_tls), req)
             last_resp = resp
@@ -131,7 +135,8 @@ class Engine:
             return resp
         finally:
             if not released:
-                await conn.close()
+                with contextlib.suppress(Exception):
+                    await conn.close()
 
     async def aclose(self):
         if self._pool is not None:
