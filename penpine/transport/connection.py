@@ -6,7 +6,7 @@ import asyncio
 
 from penpine.transport.exceptions import ReadTimeout
 from penpine.transport.reader import ResponseReader
-from penpine.transport.stream import open_asyncio_stream
+from penpine.transport.stream import open_blocking_stream
 from penpine.transport.timeouts import Timeouts
 from penpine.transport.tls import TLSConfig
 
@@ -21,7 +21,7 @@ class Connection:
         self.tls = tls or TLSConfig()
         self.proxy = proxy
         self.timeouts = timeouts or Timeouts()
-        self._opener = stream_opener or open_asyncio_stream
+        self._opener = stream_opener or open_blocking_stream
         self._stream = None
 
     async def open(self) -> Connection:

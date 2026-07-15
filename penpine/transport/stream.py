@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import socket
+import ssl
 
 from penpine.transport.exceptions import ConnectError, IncompleteResponseError
 from penpine.transport.timeouts import Timeouts
@@ -150,7 +152,9 @@ class AsyncioByteStream(ByteStream):
 async def open_asyncio_stream(
     host: str, port: int, timeouts: Timeouts | None = None
 ) -> AsyncioByteStream:
-    """Default stream opener: connect a TCP socket and wrap it."""
+    """Stream opener over asyncio's memory-BIO SSL. Kept for non-TLS use and as an
+    opt-in; NOT the default, because asyncio's SSL read loses an already-received
+    response when a peer closes a TLS connection uncleanly (see BlockingByteStream)."""
     timeouts = timeouts or Timeouts()
     try:
         coro = asyncio.open_connection(host, port)
@@ -161,3 +165,113 @@ async def open_asyncio_stream(
     except (TimeoutError, OSError) as exc:
         raise ConnectError(f"failed to connect to {host}:{port}: {exc}") from exc
     return AsyncioByteStream(reader, writer)
+
+
+class BlockingByteStream(ByteStream):
+    """ByteStream over a blocking socket (a *socket* BIO for TLS), driven through
+    the event loop's default executor.
+
+    Why not asyncio's SSL: asyncio wraps TLS over a *memory* BIO and, in
+    ``sslproto._do_read__copied``, accumulates every record read in one pass and
+    only delivers them afterward — so if a later read in that pass raises
+    (OpenSSL 3.x raises ``SSLEOFError`` when a peer closes without close_notify),
+    the already-decrypted response is discarded with the exception. A socket BIO
+    (what curl/browsers use) reads record-by-record: the response is returned,
+    and the unclean EOF simply ends the stream. This stream reproduces that
+    tolerant behavior and also treats a stray ``SSLEOFError`` on recv as EOF."""
+
+    def __init__(self, sock: socket.socket, *, loop: asyncio.AbstractEventLoop | None = None):
+        self._sock = sock
+        self._loop = loop or asyncio.get_event_loop()
+        self._rbuf = bytearray()
+        self._wbuf = bytearray()
+        self._eof = False
+        self._closed = False
+
+    async def _fill(self) -> bool:
+        """Read one chunk into the buffer; return False at end of stream."""
+        if self._eof:
+            return False
+        try:
+            chunk = await self._loop.run_in_executor(None, self._sock.recv, 65536)
+        except ssl.SSLEOFError:
+            chunk = b""  # peer closed TLS without close_notify -> treat as EOF (like curl)
+        if not chunk:
+            self._eof = True
+            return False
+        self._rbuf.extend(chunk)
+        return True
+
+    async def read(self, n: int) -> bytes:
+        while not self._rbuf and await self._fill():
+            pass
+        chunk = bytes(self._rbuf[:n])
+        del self._rbuf[:n]
+        return chunk
+
+    async def readexactly(self, n: int) -> bytes:
+        while len(self._rbuf) < n and await self._fill():
+            pass
+        if len(self._rbuf) < n:
+            raise IncompleteResponseError(f"expected {n} bytes, got {len(self._rbuf)}")
+        chunk = bytes(self._rbuf[:n])
+        del self._rbuf[:n]
+        return chunk
+
+    async def readline(self) -> bytes:
+        while b"\n" not in self._rbuf and await self._fill():
+            pass
+        idx = self._rbuf.find(b"\n")
+        if idx == -1:
+            chunk = bytes(self._rbuf)
+            self._rbuf.clear()
+            return chunk
+        chunk = bytes(self._rbuf[: idx + 1])
+        del self._rbuf[: idx + 1]
+        return chunk
+
+    def write(self, data: bytes) -> None:
+        self._wbuf.extend(data)
+
+    async def drain(self) -> None:
+        if not self._wbuf:
+            return
+        data = bytes(self._wbuf)
+        self._wbuf.clear()
+        await self._loop.run_in_executor(None, self._sock.sendall, data)
+
+    async def start_tls(self, ctx, server_hostname) -> None:
+        def _wrap() -> ssl.SSLSocket:
+            return ctx.wrap_socket(self._sock, server_hostname=server_hostname)
+
+        self._sock = await self._loop.run_in_executor(None, _wrap)
+
+    async def close(self) -> None:
+        self._closed = True
+        with contextlib.suppress(Exception):
+            await self._loop.run_in_executor(None, self._sock.close)
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+
+async def open_blocking_stream(
+    host: str, port: int, timeouts: Timeouts | None = None
+) -> BlockingByteStream:
+    """Default stream opener: a blocking socket driven via the loop's executor.
+
+    Uses a socket BIO for TLS so an unclean close (peer skips close_notify, common
+    through proxies like Burp / via Cloudflare / with TLS 1.3 tickets) does not
+    discard an already-received response — matching curl. Concurrency stays bounded
+    by the Engine's `max_concurrency`; each in-flight request uses executor threads."""
+    timeouts = timeouts or Timeouts()
+    loop = asyncio.get_event_loop()
+    try:
+        sock = await loop.run_in_executor(
+            None, socket.create_connection, (host, port), timeouts.connect
+        )
+    except (TimeoutError, OSError) as exc:
+        raise ConnectError(f"failed to connect to {host}:{port}: {exc}") from exc
+    sock.settimeout(None)  # blocking recv/send; read timeout is applied by Connection
+    return BlockingByteStream(sock, loop=loop)
