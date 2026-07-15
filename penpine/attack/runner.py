@@ -16,6 +16,7 @@ from penpine.attack.registry import by_type as _registry_by_type
 from penpine.attack.results import Attempt, Report
 from penpine.attack.types import AttackType
 from penpine.transport.engine import Engine
+from penpine.transport.trace import InjectionInfo, current_injection
 
 
 class Runner:
@@ -157,6 +158,9 @@ class Runner:
             return Attempt(test_case=test_case, error=exc)
 
         sent_tc = dataclasses.replace(test_case, request=req)
+        token = current_injection.set(
+            InjectionInfo(locator=test_case.point.expr, value=str(test_case.payload.value))
+        )
         try:
             response = await sender.send(req)
         except Exception as exc:
@@ -166,6 +170,8 @@ class Runner:
                 error=exc,
                 elapsed_ms=(time.perf_counter() - start) * 1000,
             )
+        finally:
+            current_injection.reset(token)
 
         finding = None
         if validator is not None:
@@ -192,10 +198,13 @@ class Runner:
         placeholder = TestCase(
             point=point, payload=Payload("<differential>"), attack_type=module.attack_type
         )
+        token = current_injection.set(InjectionInfo(locator=point.expr, value="<differential>"))
         try:
             finding = await module.probe(point, request, sender, baseline=baseline)
         except Exception as exc:
             return Attempt(test_case=placeholder, error=exc)
+        finally:
+            current_injection.reset(token)
         return Attempt(
             test_case=placeholder,
             request=getattr(finding, "request", None),
