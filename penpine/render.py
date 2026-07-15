@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from rich.console import Console
 from rich.markup import escape
@@ -18,9 +18,9 @@ _MAX_FIELD = 200
 _CONFIDENCE_STYLES = {"HIGH": "bold red", "MEDIUM": "yellow", "LOW": "dim cyan"}
 
 
-def _status_style(status: object) -> str:
+def _status_style(status: Any) -> str:
     try:
-        code = int(status)  # type: ignore[arg-type]
+        code = int(status)
     except (TypeError, ValueError):
         return "red"
     if 200 <= code < 300:
@@ -51,7 +51,7 @@ def _truncate(s: object, limit: int = _MAX_FIELD) -> str:
     return s if len(s) <= limit else s[: limit - 1] + "…"
 
 
-def _finding_panel(finding: object, attempt: object) -> Panel:
+def _finding_panel(finding: Any, attempt: Any) -> Panel:
     conf_name = getattr(finding.confidence, "name", str(finding.confidence))
     style = _confidence_style(finding.confidence)
     attack = getattr(finding.attack_type, "value", finding.attack_type)
@@ -75,7 +75,7 @@ def _finding_panel(finding: object, attempt: object) -> Panel:
     return Panel(grid, title=title, title_align="left", border_style=style, expand=False)
 
 
-def render_report(report: object, *, console: Console = console) -> None:
+def render_report(report: Any, *, console: Console = console) -> None:
     summary = report.summary()
     attack = getattr(report.attack_type, "value", report.attack_type)
     found = summary["found"]
@@ -95,7 +95,7 @@ def render_report(report: object, *, console: Console = console) -> None:
             console.print(f"[dim]  - {escape(str(att.error))}[/]")
 
 
-def render_run_summary(results: object, *, console: Console = console) -> None:
+def render_run_summary(results: Any, *, console: Console = console) -> None:
     table = Table(title="run summary", title_justify="left", expand=False)
     table.add_column("target / attack")
     table.add_column("sent", justify="right")
