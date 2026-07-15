@@ -19,6 +19,15 @@ class TLSConfig:
 
     def build_ssl_context(self) -> ssl.SSLContext:
         ctx = ssl.create_default_context()
+        # Tolerate a peer that closes the TLS connection without a close_notify
+        # alert (common through proxies like Burp, via Cloudflare, and with TLS 1.3
+        # session tickets left in the pipe). On OpenSSL 3.x the read otherwise
+        # raises `SSLEOFError: EOF occurred in violation of protocol`, and asyncio's
+        # sslproto drops the already-buffered response bytes with it — so a fully
+        # received response is reported as a failure. curl and browsers tolerate
+        # this; OP_IGNORE_UNEXPECTED_EOF makes the read return EOF instead of raising.
+        if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+            ctx.options |= ssl.OP_IGNORE_UNEXPECTED_EOF
         if not self.verify:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
