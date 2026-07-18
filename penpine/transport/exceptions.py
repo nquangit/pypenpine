@@ -35,3 +35,15 @@ class TotalTimeout(TransportTimeout):
 
 class IncompleteResponseError(TransportError):
     """Connection ended before a complete response was read."""
+
+
+class WebSocketError(TransportError):
+    """WebSocket protocol error."""
+
+
+class WebSocketHandshakeError(WebSocketError):
+    """The WebSocket upgrade handshake was rejected or invalid."""
+
+    def __init__(self, message: str, response=None):
+        super().__init__(message)
+        self.response = response
