@@ -42,7 +42,10 @@ class CrlfValidator(Validator):
         if not m:
             return None
         for name, value in response.headers.items():
-            if m in name or m in value:
+            # A real CRLF split creates a NEW header carrying the marker (the
+            # injected header, or a Set-Cookie from the cookie-splitting template),
+            # not merely the raw value reflected into an existing header (Location).
+            if name.lower() in (INJECTED_HEADER.lower(), "set-cookie") and m in value:
                 return Finding(
                     AttackType.CRLF,
                     test_case.point,

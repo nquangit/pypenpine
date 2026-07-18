@@ -50,6 +50,9 @@ class CmdiValidator(Validator):
         m = test_case.payload.meta.get("marker")
         text = body_text(response)
         # execution: the marker appears but NOT as part of the echoed literal payload
+        # note: a token-splitting reflector (echoing the bare marker without the
+        # separator prefix) can still produce a false positive here — inherent to
+        # reflection oracles.
         if m and m in text and test_case.payload.value not in text:
             return Finding(
                 AttackType.CMDI,

@@ -27,6 +27,12 @@ def test_validator_flags_5xx_high():
     assert f is not None and f.confidence.name == "HIGH" and f.attack_type == AttackType.FUZZ
 
 
+def test_validator_5xx_without_baseline_is_medium():
+    tc = next(iter(FuzzGenerator().generate(pt(), None)))
+    f = FuzzValidator().evaluate(tc, resp(status=500), baseline=None)
+    assert f is not None and f.confidence.name == "MEDIUM" and f.attack_type == AttackType.FUZZ
+
+
 def test_validator_flags_error_signature_high():
     tc = next(iter(FuzzGenerator().generate(pt(), None)))
     f = FuzzValidator().evaluate(

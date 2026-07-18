@@ -25,6 +25,24 @@ def test_validator_detects_injected_response_header():
     assert f is not None and f.confidence.name == "HIGH" and f.attack_type == AttackType.CRLF
 
 
+def test_validator_detects_set_cookie_split():
+    tc = next(iter(CrlfGenerator().generate(pt(), None)))
+    m = tc.payload.meta["marker"]
+    raw = b"HTTP/1.1 200 OK\r\nSet-Cookie: %s=%s\r\nContent-Length: 0\r\n\r\n" % (
+        INJECTED_HEADER.encode(),
+        m.encode(),
+    )
+    f = CrlfValidator().evaluate(tc, parse_response(raw), None)
+    assert f is not None and f.confidence.name == "HIGH" and f.attack_type == AttackType.CRLF
+
+
+def test_validator_ignores_marker_reflected_into_location():
+    tc = next(iter(CrlfGenerator().generate(pt(), None)))
+    m = tc.payload.meta["marker"]
+    raw = b"HTTP/1.1 302 Found\r\nLocation: /go?x=" + m.encode() + b"\r\nContent-Length: 0\r\n\r\n"
+    assert CrlfValidator().evaluate(tc, parse_response(raw), None) is None
+
+
 def test_validator_no_injection_returns_none():
     tc = next(iter(CrlfGenerator().generate(pt(), None)))
     clean = parse_response(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")

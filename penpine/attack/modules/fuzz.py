@@ -89,9 +89,8 @@ class FuzzValidator(Validator):
     def evaluate(self, test_case, response, baseline=None):
         status = _status(response)
         if status >= 500 and _status(baseline) < 500:
-            return self._finding(
-                test_case, response, Confidence.HIGH, f"server error status {status}"
-            )
+            conf = Confidence.HIGH if baseline is not None else Confidence.MEDIUM
+            return self._finding(test_case, response, conf, f"server error status {status}")
         match = error_signature(response, baseline, self._signatures)
         if match is not None:
             return self._finding(
