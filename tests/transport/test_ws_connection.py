@@ -1,3 +1,6 @@
+import pytest
+
+from penpine.transport.exceptions import WebSocketError
 from penpine.transport.stream import FakeByteStream
 from penpine.transport.websocket import Message, WebSocketConnection
 from penpine.transport.ws_frame import OP_PING, Frame
@@ -80,3 +83,38 @@ async def test_recv_frame_reads_across_partial_stream_chunks():
     ws = WebSocketConnection(_Conn(Frame.text("abcdefgh").serialize()))
     f = await ws.recv_frame()
     assert f.payload == b"abcdefgh"
+
+
+async def test_close_sends_close_frame_and_closes_conn_without_raising():
+    conn = _Conn()
+    ws = WebSocketConnection(conn)
+    await ws.close(1000, "bye")  # must NOT raise
+    frame, _ = Frame.parse(bytes(conn.sent))
+    assert frame.opcode == 0x8 and frame.payload[:2] == (1000).to_bytes(2, "big")
+    assert conn.closed is True and ws.closed is True
+
+
+async def test_close_is_idempotent():
+    conn = _Conn()
+    ws = WebSocketConnection(conn)
+    await ws.close()
+    conn.sent.clear()
+    await ws.close()  # second call: no new close frame, still fine
+    assert conn.sent == b""
+
+
+async def test_close_after_peer_close_still_closes_conn():
+    # peer sends a close -> recv() marks us closed; a later close() must still close the socket
+    conn = _Conn(Frame.close(1001, "srv").serialize())
+    ws = WebSocketConnection(conn)
+    msg = await ws.recv()
+    assert msg.kind == "close" and ws.closed is True
+    await ws.close()  # must not raise, must close the underlying conn
+    assert conn.closed is True
+
+
+async def test_send_after_close_raises():
+    ws = WebSocketConnection(_Conn())
+    await ws.close()
+    with pytest.raises(WebSocketError):
+        await ws.send_text("nope")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import os
 from dataclasses import dataclass
@@ -160,9 +161,17 @@ class WebSocketConnection:
                 return Message(kind="binary", data=bytes(data))
 
     async def close(self, code: int = 1000, reason: str = "") -> None:
-        if not self._closed:
-            self._closed = True
-            try:
-                await self.send_frame(Frame.close(code, reason))
-            finally:
-                await self._conn.close()
+        should_send = not self._closed
+        self._closed = True
+        if should_send:
+            with contextlib.suppress(Exception):
+                frame = Frame.close(code, reason)
+                await self._conn.send_bytes(
+                    Frame(
+                        opcode=frame.opcode,
+                        payload=frame.payload,
+                        fin=frame.fin,
+                        mask=os.urandom(4),
+                    ).serialize()
+                )
+        await self._conn.close()
