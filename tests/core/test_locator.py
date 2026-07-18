@@ -73,3 +73,31 @@ def test_locate_and_replace_version():
     r = Request(method="GET", target="/", version="HTTP/1.1", headers=Headers([("Host", "h")]))
     assert r.locate("version").value == "HTTP/1.1"
     assert r.replace_at("version", "HTTP/1.0").version == "HTTP/1.0"
+
+
+def test_body_locator_locate_and_replace():
+    from penpine.core.message import Request
+
+    req = Request.from_raw(
+        b"POST /x HTTP/1.1\r\nHost: h\r\nContent-Type: text/plain\r\n"
+        b"Content-Length: 5\r\n\r\nhello",
+        scheme="http",
+        host="h",
+        port=80,
+    )
+    assert req.locate("body").value == "hello"
+    out = req.replace_at("body", "WORLD")
+    assert out.body.text() == "WORLD"
+    assert out.body.raw == b"WORLD"
+
+
+def test_body_locator_replace_accepts_bytes():
+    from penpine.core.message import Request
+
+    req = Request.from_raw(
+        b"POST /x HTTP/1.1\r\nHost: h\r\nContent-Length: 2\r\n\r\nhi",
+        scheme="http",
+        host="h",
+        port=80,
+    )
+    assert req.replace_at("body", b"\x00\x01").body.raw == b"\x00\x01"
