@@ -171,6 +171,13 @@ class CommandInjectionRule(ClassificationRule):
         return set()
 
 
+class NoSqlRule(ClassificationRule):
+    name = "nosql"
+
+    def match(self, point) -> set:
+        return {AttackType.NOSQLI} if point.kind in {"param", "form", "json"} else set()
+
+
 DEFAULT_RULES = [
     StringContextRule(),
     NumericValueRule(),
@@ -186,4 +193,5 @@ DEFAULT_RULES = [
     TemplateInjectionRule(),
     CrlfRule(),
     CommandInjectionRule(),
+    NoSqlRule(),
 ]

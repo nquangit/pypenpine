@@ -35,6 +35,12 @@ def test_import_has_no_side_effects():
     assert result.stdout.strip() == "[]"  # fresh import registers nothing
 
 
+def test_all_generic_modules_registered():
+    register_builtins()
+    for name in ("fuzz", "ssti", "crlf", "ssrf", "cmdi", "nosqli"):
+        assert registry.get(name) is not None
+
+
 def test_attack_package_reexports():
     from penpine.attack import BUILTIN_MODULES as bm
     from penpine.attack import register_builtins as rb

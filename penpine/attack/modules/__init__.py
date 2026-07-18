@@ -28,6 +28,13 @@ from penpine.attack.modules.fuzz import (
     FuzzGenerator,
     FuzzValidator,
 )
+from penpine.attack.modules.nosqli import (
+    NOSQLI_MODULE,
+    NOSQLI_PAYLOADS,
+    NOSQLI_SIGNATURES,
+    NosqliGenerator,
+    NosqliValidator,
+)
 from penpine.attack.modules.redirect import (
     CANARY_HOST,
     REDIRECT_MODULE,
@@ -81,6 +88,7 @@ BUILTIN_MODULES = [
     CRLF_MODULE,
     SSRF_MODULE,
     CMDI_MODULE,
+    NOSQLI_MODULE,
 ]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
@@ -135,6 +143,11 @@ __all__ = [
     "CmdiValidator",
     "CMDI_TEMPLATES",
     "CMDI_MODULE",
+    "NosqliGenerator",
+    "NosqliValidator",
+    "NOSQLI_PAYLOADS",
+    "NOSQLI_SIGNATURES",
+    "NOSQLI_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
     "DifferentialModule",
