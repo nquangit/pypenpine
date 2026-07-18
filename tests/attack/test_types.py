@@ -16,6 +16,11 @@ def test_members_cover_all_rule_tags_plus_broken_access():
         "host-header",
         "header-injection",
         "broken-access",
+        "fuzz",
+        "ssti",
+        "crlf",
+        "cmdi",
+        "nosqli",
     }
     assert {t.value for t in AttackType} == expected
 
@@ -34,3 +39,17 @@ def test_values_are_sortable_for_deterministic_tagging():
     # analyzer sorts tags by value for stable output
     ordered = sorted(AttackType, key=lambda t: t.value)
     assert [t.value for t in ordered] == sorted(t.value for t in AttackType)
+
+
+def test_new_generic_attack_types_exist_and_roundtrip():
+    from penpine.attack.types import AttackType
+
+    for name, value in [
+        ("FUZZ", "fuzz"),
+        ("SSTI", "ssti"),
+        ("CRLF", "crlf"),
+        ("CMDI", "cmdi"),
+        ("NOSQLI", "nosqli"),
+    ]:
+        assert AttackType[name].value == value
+        assert AttackType.from_str(value) is AttackType[name]
