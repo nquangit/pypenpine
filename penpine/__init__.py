@@ -3,6 +3,7 @@
 from penpine.attack.flow.runner import FlowRunner
 from penpine.attack.runner import Runner
 from penpine.attack.types import AttackType
+from penpine.attack.websocket import WebSocketSender, run_ws_attack, run_ws_attack_sync
 from penpine.auth.manager import SessionManager
 from penpine.auth.profile import AuthProfile
 from penpine.core.body.base import Body
@@ -40,6 +41,9 @@ __all__ = [
     "Identity",
     "Runner",
     "AttackType",
+    "WebSocketSender",
+    "run_ws_attack",
+    "run_ws_attack_sync",
     "Flow",
     "FlowRunner",
     "Step",

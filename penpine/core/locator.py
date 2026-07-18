@@ -22,7 +22,7 @@ class ResolvedLocator:
 
 
 def parse_expr(expr: str) -> tuple[str, str]:
-    if expr in ("method", "target", "version"):
+    if expr in ("method", "target", "version", "body"):
         return expr, ""
     kind, sep, name = expr.partition(":")
     if not sep:
@@ -73,6 +73,8 @@ def _read(request, kind: str, name: str):
             return segs[int(name)]
         except (ValueError, IndexError) as exc:
             raise LocatorError(f"path segment not found: {name}") from exc
+    if kind == "body":
+        return request.body.text()
     raise LocatorError(f"unknown locator kind: {kind}")
 
 
@@ -105,6 +107,8 @@ def _replace(request, kind: str, name: str, value):
         segs[non_empty[int(name)]] = value
         new_path = "/".join(segs)
         return request.with_target(f"{new_path}?{query}" if query else new_path)
+    if kind == "body":
+        return request.with_body(value.encode("utf-8") if isinstance(value, str) else value)
     raise LocatorError(f"cannot replace kind: {kind}")
 
 

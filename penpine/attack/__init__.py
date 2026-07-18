@@ -24,6 +24,13 @@ from penpine.attack.results import Attempt, Report
 from penpine.attack.runner import Runner
 from penpine.attack.types import AttackType
 from penpine.attack.validator import Validator
+from penpine.attack.websocket import (
+    WebSocketSender,
+    run_ws_attack,
+    run_ws_attack_sync,
+    ws_injection_points,
+    ws_message_request,
+)
 
 __all__ = [
     "InjectionPoint",
@@ -52,4 +59,9 @@ __all__ = [
     "Runner",
     "register_builtins",
     "BUILTIN_MODULES",
+    "WebSocketSender",
+    "run_ws_attack",
+    "run_ws_attack_sync",
+    "ws_injection_points",
+    "ws_message_request",
 ]
