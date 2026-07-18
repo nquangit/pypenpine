@@ -1,11 +1,15 @@
 import base64
 import hashlib
+import re
 import socket
 import struct
 import threading
 
+from penpine.attack.types import AttackType
 from penpine.attack.websocket import (
     WebSocketSender,
+    run_ws_attack,
+    run_ws_attack_sync,
     ws_injection_points,
     ws_message_request,
 )
@@ -57,39 +61,52 @@ def _ws_frame_send(conn, text):
 
 
 def ws_server(handler):
-    """handler(message_str) -> reply_str (or None to send nothing). One connection."""
+    """handler(message_str) -> reply_str (or None to send nothing). Serves each accepted
+    connection on its own thread, so attack runs that open many WebSocket connections
+    concurrently (baseline + N mutated payloads) all succeed."""
     srv = socket.socket()
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", 0))
-    srv.listen(1)
+    srv.listen(128)
     host, port = srv.getsockname()
 
+    def handle(conn):
+        try:
+            req = b""
+            while b"\r\n\r\n" not in req:
+                chunk = conn.recv(1024)
+                if not chunk:
+                    return
+                req += chunk
+            key = ""
+            for line in req.decode("latin-1").split("\r\n"):
+                if line.lower().startswith("sec-websocket-key:"):
+                    key = line.split(":", 1)[1].strip()
+            accept = base64.b64encode(hashlib.sha1((key + _GUID).encode()).digest()).decode()
+            conn.sendall(
+                b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+                b"Connection: Upgrade\r\nSec-WebSocket-Accept: " + accept.encode() + b"\r\n\r\n"
+            )
+            while True:
+                try:
+                    op, payload = _ws_frame_read(conn)
+                except (IndexError, ConnectionError, OSError):
+                    break
+                if op == 0x8:  # close
+                    break
+                reply = handler(payload.decode("utf-8", "replace"))
+                if reply is not None:
+                    _ws_frame_send(conn, reply)
+        finally:
+            conn.close()
+
     def serve():
-        conn, _ = srv.accept()
-        req = b""
-        while b"\r\n\r\n" not in req:
-            req += conn.recv(1024)
-        key = ""
-        for line in req.decode("latin-1").split("\r\n"):
-            if line.lower().startswith("sec-websocket-key:"):
-                key = line.split(":", 1)[1].strip()
-        accept = base64.b64encode(hashlib.sha1((key + _GUID).encode()).digest()).decode()
-        conn.sendall(
-            b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
-            b"Connection: Upgrade\r\nSec-WebSocket-Accept: " + accept.encode() + b"\r\n\r\n"
-        )
         while True:
             try:
-                op, payload = _ws_frame_read(conn)
-            except (IndexError, ConnectionError, OSError):
+                conn, _ = srv.accept()
+            except OSError:
                 break
-            if op == 0x8:  # close
-                break
-            reply = handler(payload.decode("utf-8", "replace"))
-            if reply is not None:
-                _ws_frame_send(conn, reply)
-        conn.close()
-        srv.close()
+            threading.Thread(target=handle, args=(conn,), daemon=True).start()
 
     threading.Thread(target=serve, daemon=True).start()
     return host, port
@@ -108,3 +125,47 @@ async def test_ws_sender_recv_timeout_returns_empty_body():
     sender = WebSocketSender(f"ws://{host}:{port}/chat", recv_timeout=0.3)
     resp = await sender.send(ws_message_request(f"ws://{host}:{port}/chat", "hi", json=False))
     assert resp.status_code == 200 and resp.body.raw == b""
+
+
+async def test_run_ws_attack_json_fuzz_finds_error_reply():
+    # server returns a stack trace when a message differs from the benign baseline
+    def handler(msg):
+        return "ok" if msg == '{"id":"1"}' else "Traceback (most recent call last): boom"
+
+    host, port = ws_server(handler)
+    report = await run_ws_attack(f"ws://{host}:{port}/x", '{"id":"1"}', AttackType.FUZZ)
+    assert report.findings
+    assert any(f.attack_type == AttackType.FUZZ for f in report.findings)
+
+
+async def test_run_ws_attack_ssti_evaluates_product():
+    # a template-evaluating server: replace {{a*b}} with the product
+    def handler(msg):
+        m = re.search(r"\{\{(\d+)\*(\d+)\}\}", msg)
+        if m:
+            return f"result: {int(m.group(1)) * int(m.group(2))}"
+        return "no template"
+
+    host, port = ws_server(handler)
+    report = await run_ws_attack(f"ws://{host}:{port}/x", '{"q":"hi"}', AttackType.SSTI)
+    assert any(
+        f.attack_type == AttackType.SSTI and f.confidence.name == "HIGH" for f in report.findings
+    )
+
+
+async def test_run_ws_attack_text_message_via_body_point():
+    def handler(msg):
+        return "Fatal error: bad" if msg != "PING" else "pong"
+
+    host, port = ws_server(handler)
+    report = await run_ws_attack(f"ws://{host}:{port}/x", "PING", AttackType.FUZZ, json=False)
+    assert report.findings  # whole-message fuzz via the `body` locator
+
+
+def test_run_ws_attack_sync_round_trip():
+    def handler(msg):
+        return "ok" if msg == '{"id":"1"}' else "Internal Server Error"
+
+    host, port = ws_server(handler)
+    report = run_ws_attack_sync(f"ws://{host}:{port}/x", '{"id":"1"}', AttackType.FUZZ)
+    assert report.findings

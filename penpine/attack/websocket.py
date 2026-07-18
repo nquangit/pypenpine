@@ -101,3 +101,33 @@ class WebSocketSender:
             headers=Headers([("Content-Type", ctype)]),
             body=Body("".join(replies).encode("utf-8")),
         )
+
+
+def _ws_run(url, message, attack, json, points, sender, max_concurrency, sender_kw, *, sync):
+    from penpine.attack.modules import register_builtins
+    from penpine.attack.runner import Runner
+
+    register_builtins()  # idempotent; ensures the chosen attack resolves to a module
+    request = ws_message_request(url, message, json=json)
+    pts = points if points is not None else ws_injection_points(request)
+    active = sender if sender is not None else WebSocketSender(url, **sender_kw)
+    runner = Runner(sender=active, max_concurrency=max_concurrency)
+    if sync:
+        return runner.run_sync(request, attack=attack, points=pts)
+    return runner.run(request, attack=attack, points=pts)
+
+
+async def run_ws_attack(
+    url, message, attack, *, json=True, points=None, sender=None, max_concurrency=10, **sender_kw
+):
+    return await _ws_run(
+        url, message, attack, json, points, sender, max_concurrency, sender_kw, sync=False
+    )
+
+
+def run_ws_attack_sync(
+    url, message, attack, *, json=True, points=None, sender=None, max_concurrency=10, **sender_kw
+):
+    return _ws_run(
+        url, message, attack, json, points, sender, max_concurrency, sender_kw, sync=True
+    )
