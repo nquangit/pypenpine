@@ -25,6 +25,7 @@ SAMPLES = [
     "flow_basic",
     "flow_attacks",
     "flow_login",
+    "websocket",
 ]
 FINDING_SAMPLES = {"custom_module", "byo_test_cases", "flow_attacks"}
 
