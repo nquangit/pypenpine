@@ -120,6 +120,15 @@ def _ws_run(url, message, attack, json, points, sender, max_concurrency, sender_
 async def run_ws_attack(
     url, message, attack, *, json=True, points=None, sender=None, max_concurrency=10, **sender_kw
 ):
+    """Run `attack` (an AttackType or list) over a WebSocket `message`, returning a Report.
+
+    JSON messages are fuzzed per field (`json:$.*`); pass `json=False` to fuzz the
+    whole message via the `body` locator. Calls `register_builtins()` (idempotent,
+    replaces builtins by name — a builtin you intentionally unregistered will be
+    restored). Extra kwargs go to `WebSocketSender` (`headers`, `proxy`, `prelude`,
+    `recv_count`, `recv_timeout`, `binary`); bump `recv_count` when the server sends
+    an ack frame before the real reply, or the reply may collapse to the ack.
+    """
     return await _ws_run(
         url, message, attack, json, points, sender, max_concurrency, sender_kw, sync=False
     )
