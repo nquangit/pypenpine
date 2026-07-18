@@ -151,6 +151,17 @@ class TemplateInjectionRule(ClassificationRule):
         return set()
 
 
+class CrlfRule(ClassificationRule):
+    name = "crlf"
+
+    def match(self, point) -> set:
+        if point.kind in {"param", "form", "json", "header"}:
+            return {AttackType.CRLF}
+        if _name(point) in _REDIRECT_NAMES:
+            return {AttackType.CRLF}
+        return set()
+
+
 DEFAULT_RULES = [
     StringContextRule(),
     NumericValueRule(),
@@ -164,4 +175,5 @@ DEFAULT_RULES = [
     SearchNameRule(),
     FuzzRule(),
     TemplateInjectionRule(),
+    CrlfRule(),
 ]
