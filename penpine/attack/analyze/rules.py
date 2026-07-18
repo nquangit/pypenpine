@@ -162,6 +162,15 @@ class CrlfRule(ClassificationRule):
         return set()
 
 
+class CommandInjectionRule(ClassificationRule):
+    name = "command-injection"
+
+    def match(self, point) -> set:
+        if point.kind in _BODY_KINDS and not is_empty(point.value):
+            return {AttackType.CMDI}
+        return set()
+
+
 DEFAULT_RULES = [
     StringContextRule(),
     NumericValueRule(),
@@ -176,4 +185,5 @@ DEFAULT_RULES = [
     FuzzRule(),
     TemplateInjectionRule(),
     CrlfRule(),
+    CommandInjectionRule(),
 ]

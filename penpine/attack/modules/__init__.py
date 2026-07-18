@@ -1,5 +1,11 @@
 """Penpine L4d built-in attack modules. No import-time registration."""
 
+from penpine.attack.modules.cmdi import (
+    CMDI_MODULE,
+    CMDI_TEMPLATES,
+    CmdiGenerator,
+    CmdiValidator,
+)
 from penpine.attack.modules.crlf import (
     CRLF_MODULE,
     CRLF_TEMPLATES,
@@ -74,6 +80,7 @@ BUILTIN_MODULES = [
     SSTI_MODULE,
     CRLF_MODULE,
     SSRF_MODULE,
+    CMDI_MODULE,
 ]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
@@ -124,6 +131,10 @@ __all__ = [
     "SSRF_PAYLOADS",
     "SSRF_SIGNATURES",
     "SSRF_MODULE",
+    "CmdiGenerator",
+    "CmdiValidator",
+    "CMDI_TEMPLATES",
+    "CMDI_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
     "DifferentialModule",
