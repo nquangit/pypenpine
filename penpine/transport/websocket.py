@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextlib
 import hashlib
 import os
+import threading
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from penpine._sync import run_on_loop
+from penpine.core.parse.http_parser import parse_response
+from penpine.transport.connection import Connection
 from penpine.transport.exceptions import WebSocketError, WebSocketHandshakeError
+from penpine.transport.reader import _read_head
 from penpine.transport.ws_frame import (
     OP_BINARY,
     OP_CLOSE,
@@ -73,6 +79,37 @@ def _validate_handshake(response, key: str) -> None:
         raise WebSocketHandshakeError("Sec-WebSocket-Accept mismatch", response)
 
 
+async def ws_connect(
+    url, *, headers=None, subprotocols=None, tls=None, proxy=None, timeouts=None, auto_pong=True
+) -> WebSocketConnection:
+    scheme, host, port, target = _parse_ws_url(url)
+    conn = Connection(
+        host, port, use_tls=(scheme == "wss"), tls=tls, proxy=proxy, timeouts=timeouts
+    )
+    await conn.open()
+    key = _new_key()
+    hostport = f"{host}:{port}"
+    await conn.send_bytes(
+        _build_handshake(hostport, target, key, headers=headers, subprotocols=subprotocols)
+    )
+    read_head = _read_head(conn.stream)
+    if conn.timeouts.read:
+        head, remainder = await asyncio.wait_for(read_head, conn.timeouts.read)
+    else:
+        head, remainder = await read_head
+    _validate_handshake(parse_response(head), key)
+    return WebSocketConnection(conn, initial_buffer=remainder, auto_pong=auto_pong)
+
+
+def ws_connect_sync(url, **kwargs) -> WebSocketConnection:
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    ws = run_on_loop(loop, ws_connect(url, **kwargs))
+    ws._bind_loop(loop, thread)
+    return ws
+
+
 @dataclass
 class Message:
     kind: str  # "text" | "binary" | "close"
@@ -90,6 +127,8 @@ class WebSocketConnection:
         self._buf = bytearray(initial_buffer)
         self._auto_pong = auto_pong
         self._closed = False
+        self._loop = None
+        self._loop_thread = None
 
     @property
     def closed(self) -> bool:
@@ -175,3 +214,34 @@ class WebSocketConnection:
                     ).serialize()
                 )
         await self._conn.close()
+
+    def _bind_loop(self, loop, thread) -> None:
+        self._loop = loop
+        self._loop_thread = thread
+
+    def send_text_sync(self, s: str) -> None:
+        run_on_loop(self._loop, self.send_text(s))
+
+    def send_bytes_sync(self, b: bytes) -> None:
+        run_on_loop(self._loop, self.send_bytes(b))
+
+    def send_frame_sync(self, frame) -> None:
+        run_on_loop(self._loop, self.send_frame(frame))
+
+    def ping_sync(self, payload: bytes = b"") -> None:
+        run_on_loop(self._loop, self.ping(payload))
+
+    def recv_sync(self):
+        return run_on_loop(self._loop, self.recv())
+
+    def recv_frame_sync(self):
+        return run_on_loop(self._loop, self.recv_frame())
+
+    def close_sync(self, code: int = 1000, reason: str = "") -> None:
+        run_on_loop(self._loop, self.close(code, reason))
+        loop, thread = getattr(self, "_loop", None), getattr(self, "_loop_thread", None)
+        if loop is not None:
+            loop.call_soon_threadsafe(loop.stop)
+            thread.join(timeout=2)
+            loop.close()
+            self._loop = None

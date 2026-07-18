@@ -63,6 +63,11 @@ class Connection:
     def closed(self) -> bool:
         return self._stream is None or self._stream.closed
 
+    @property
+    def stream(self):
+        """The underlying ByteStream (available after open()). For WebSocket frame I/O."""
+        return self._stream
+
     async def __aenter__(self):
         return await self.open()
 

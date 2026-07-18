@@ -11,6 +11,8 @@ from penpine.transport.exceptions import (
     TotalTimeout,
     TransportError,
     TransportTimeout,
+    WebSocketError,
+    WebSocketHandshakeError,
 )
 from penpine.transport.interceptor import Interceptor, RequestLogInterceptor, RetrySignal
 from penpine.transport.pool import PoolConfig
@@ -18,6 +20,8 @@ from penpine.transport.proxy import ProxyConfig
 from penpine.transport.timeouts import Timeouts
 from penpine.transport.tls import TLSConfig
 from penpine.transport.trace import InjectionInfo, current_injection
+from penpine.transport.websocket import Message, WebSocketConnection, ws_connect, ws_connect_sync
+from penpine.transport.ws_frame import Frame
 
 __all__ = [
     "Engine",
@@ -39,4 +43,11 @@ __all__ = [
     "TotalTimeout",
     "IncompleteResponseError",
     "PoolConfig",
+    "Frame",
+    "Message",
+    "WebSocketConnection",
+    "ws_connect",
+    "ws_connect_sync",
+    "WebSocketError",
+    "WebSocketHandshakeError",
 ]
