@@ -12,6 +12,9 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from penpine._sync import run_on_loop
+from penpine.core.body.base import Body
+from penpine.core.headers import Headers
+from penpine.core.message import Response
 from penpine.core.parse.http_parser import parse_response
 from penpine.transport.connection import Connection
 from penpine.transport.exceptions import WebSocketError, WebSocketHandshakeError
@@ -126,6 +129,29 @@ class Message:
     data: bytes | str = b""
     code: int | None = None
     reason: str | None = None
+
+
+async def recv_reply(ws, *, recv_count=1, recv_timeout=5.0, content_type="application/json"):
+    """Receive up to `recv_count` reply messages (stopping on timeout or a close),
+    join their text, and return a synthetic Response(200) — the shape the attack
+    validators and flow capture consume."""
+    replies: list[str] = []
+    for _ in range(recv_count):
+        try:
+            msg = await asyncio.wait_for(ws.recv(), recv_timeout)
+        except (TimeoutError, WebSocketError):
+            break
+        if msg.kind == "close":
+            break
+        replies.append(
+            msg.data if isinstance(msg.data, str) else msg.data.decode("utf-8", "replace")
+        )
+    return Response(
+        status_code=200,
+        reason="OK",
+        headers=Headers([("Content-Type", content_type)]),
+        body=Body("".join(replies).encode("utf-8")),
+    )
 
 
 class WebSocketConnection:
