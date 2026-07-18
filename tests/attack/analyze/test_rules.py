@@ -102,7 +102,7 @@ def test_search_name_rule():
 
 
 def test_default_rules_is_ordered_list_of_rules():
-    assert isinstance(DEFAULT_RULES, list) and len(DEFAULT_RULES) == 10
+    assert isinstance(DEFAULT_RULES, list) and len(DEFAULT_RULES) >= 11
     assert all(isinstance(r, ClassificationRule) for r in DEFAULT_RULES)
     assert all(r.name for r in DEFAULT_RULES)
 

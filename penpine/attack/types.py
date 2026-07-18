@@ -18,6 +18,11 @@ class AttackType(Enum):
     HOST_HEADER = "host-header"
     HEADER_INJECTION = "header-injection"
     BROKEN_ACCESS = "broken-access"
+    FUZZ = "fuzz"
+    SSTI = "ssti"
+    CRLF = "crlf"
+    CMDI = "cmdi"
+    NOSQLI = "nosqli"
 
     @classmethod
     def from_str(cls, value: str) -> AttackType:

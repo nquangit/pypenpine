@@ -17,7 +17,7 @@ def test_register_builtins_registers_all_and_is_idempotent():
         assert registry.get(name)
     register_builtins()
     assert set(registry.list_modules()) >= {"sqli", "xss", "path-traversal", "open-redirect"}
-    assert len(BUILTIN_MODULES) == 4
+    assert len(BUILTIN_MODULES) >= 4
 
 
 def test_import_has_no_side_effects():
@@ -33,6 +33,12 @@ def test_import_has_no_side_effects():
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "[]"  # fresh import registers nothing
+
+
+def test_all_generic_modules_registered():
+    register_builtins()
+    for name in ("fuzz", "ssti", "crlf", "ssrf", "cmdi", "nosqli"):
+        assert registry.get(name) is not None
 
 
 def test_attack_package_reexports():

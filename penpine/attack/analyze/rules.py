@@ -133,6 +133,51 @@ class SearchNameRule(ClassificationRule):
         return {AttackType.XSS, AttackType.SQLI} if _name(point) in _SEARCH_NAMES else set()
 
 
+class FuzzRule(ClassificationRule):
+    name = "fuzz"
+
+    def match(self, point) -> set:
+        return {AttackType.FUZZ}
+
+
+class TemplateInjectionRule(ClassificationRule):
+    name = "template-injection"
+
+    def match(self, point) -> set:
+        if point.kind in _BODY_KINDS and not is_empty(point.value) and not is_numeric(point.value):
+            return {AttackType.SSTI}
+        if _name(point) in _SEARCH_NAMES:
+            return {AttackType.SSTI}
+        return set()
+
+
+class CrlfRule(ClassificationRule):
+    name = "crlf"
+
+    def match(self, point) -> set:
+        if point.kind in {"param", "form", "json", "header"}:
+            return {AttackType.CRLF}
+        if _name(point) in _REDIRECT_NAMES:
+            return {AttackType.CRLF}
+        return set()
+
+
+class CommandInjectionRule(ClassificationRule):
+    name = "command-injection"
+
+    def match(self, point) -> set:
+        if point.kind in _BODY_KINDS and not is_empty(point.value):
+            return {AttackType.CMDI}
+        return set()
+
+
+class NoSqlRule(ClassificationRule):
+    name = "nosql"
+
+    def match(self, point) -> set:
+        return {AttackType.NOSQLI} if point.kind in {"param", "form", "json"} else set()
+
+
 DEFAULT_RULES = [
     StringContextRule(),
     NumericValueRule(),
@@ -144,4 +189,9 @@ DEFAULT_RULES = [
     HostHeaderRule(),
     ProxyHeaderRule(),
     SearchNameRule(),
+    FuzzRule(),
+    TemplateInjectionRule(),
+    CrlfRule(),
+    CommandInjectionRule(),
+    NoSqlRule(),
 ]

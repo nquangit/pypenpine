@@ -1,5 +1,18 @@
 """Penpine L4d built-in attack modules. No import-time registration."""
 
+from penpine.attack.modules.cmdi import (
+    CMDI_MODULE,
+    CMDI_TEMPLATES,
+    CmdiGenerator,
+    CmdiValidator,
+)
+from penpine.attack.modules.crlf import (
+    CRLF_MODULE,
+    CRLF_TEMPLATES,
+    INJECTED_HEADER,
+    CrlfGenerator,
+    CrlfValidator,
+)
 from penpine.attack.modules.differential import (
     BOOLEAN_PAYLOAD_PAIRS,
     BOOLEAN_SQLI_MODULE,
@@ -8,6 +21,19 @@ from penpine.attack.modules.differential import (
     BooleanSqliModule,
     DifferentialModule,
     TimeSqliModule,
+)
+from penpine.attack.modules.fuzz import (
+    FUZZ_MODULE,
+    FUZZ_PAYLOADS,
+    FuzzGenerator,
+    FuzzValidator,
+)
+from penpine.attack.modules.nosqli import (
+    NOSQLI_MODULE,
+    NOSQLI_PAYLOADS,
+    NOSQLI_SIGNATURES,
+    NosqliGenerator,
+    NosqliValidator,
 )
 from penpine.attack.modules.redirect import (
     CANARY_HOST,
@@ -24,6 +50,19 @@ from penpine.attack.modules.sqli import (
     SqliGenerator,
     SqliValidator,
 )
+from penpine.attack.modules.ssrf import (
+    SSRF_MODULE,
+    SSRF_PAYLOADS,
+    SSRF_SIGNATURES,
+    SsrfGenerator,
+    SsrfValidator,
+)
+from penpine.attack.modules.ssti import (
+    SSTI_MODULE,
+    SSTI_TEMPLATES,
+    SstiGenerator,
+    SstiValidator,
+)
 from penpine.attack.modules.traversal import (
     TRAVERSAL_MODULE,
     TRAVERSAL_PAYLOADS,
@@ -39,7 +78,18 @@ from penpine.attack.modules.xss import (
 )
 from penpine.attack.registry import RegistrableModule, register
 
-BUILTIN_MODULES = [SQLI_MODULE, XSS_MODULE, TRAVERSAL_MODULE, REDIRECT_MODULE]
+BUILTIN_MODULES = [
+    SQLI_MODULE,
+    XSS_MODULE,
+    TRAVERSAL_MODULE,
+    REDIRECT_MODULE,
+    FUZZ_MODULE,
+    SSTI_MODULE,
+    CRLF_MODULE,
+    SSRF_MODULE,
+    CMDI_MODULE,
+    NOSQLI_MODULE,
+]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
 
@@ -71,6 +121,33 @@ __all__ = [
     "REDIRECT_PAYLOADS",
     "CANARY_HOST",
     "REDIRECT_MODULE",
+    "FuzzGenerator",
+    "FuzzValidator",
+    "FUZZ_PAYLOADS",
+    "FUZZ_MODULE",
+    "SstiGenerator",
+    "SstiValidator",
+    "SSTI_TEMPLATES",
+    "SSTI_MODULE",
+    "CrlfGenerator",
+    "CrlfValidator",
+    "CRLF_TEMPLATES",
+    "INJECTED_HEADER",
+    "CRLF_MODULE",
+    "SsrfGenerator",
+    "SsrfValidator",
+    "SSRF_PAYLOADS",
+    "SSRF_SIGNATURES",
+    "SSRF_MODULE",
+    "CmdiGenerator",
+    "CmdiValidator",
+    "CMDI_TEMPLATES",
+    "CMDI_MODULE",
+    "NosqliGenerator",
+    "NosqliValidator",
+    "NOSQLI_PAYLOADS",
+    "NOSQLI_SIGNATURES",
+    "NOSQLI_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
     "DifferentialModule",
