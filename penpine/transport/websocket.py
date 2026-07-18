@@ -87,25 +87,35 @@ async def ws_connect(
         host, port, use_tls=(scheme == "wss"), tls=tls, proxy=proxy, timeouts=timeouts
     )
     await conn.open()
-    key = _new_key()
-    hostport = f"{host}:{port}"
-    await conn.send_bytes(
-        _build_handshake(hostport, target, key, headers=headers, subprotocols=subprotocols)
-    )
-    read_head = _read_head(conn.stream)
-    if conn.timeouts.read:
-        head, remainder = await asyncio.wait_for(read_head, conn.timeouts.read)
-    else:
-        head, remainder = await read_head
-    _validate_handshake(parse_response(head), key)
-    return WebSocketConnection(conn, initial_buffer=remainder, auto_pong=auto_pong)
+    try:
+        key = _new_key()
+        hostport = f"{host}:{port}"
+        await conn.send_bytes(
+            _build_handshake(hostport, target, key, headers=headers, subprotocols=subprotocols)
+        )
+        read_head = _read_head(conn.stream)
+        if conn.timeouts.read:
+            head, remainder = await asyncio.wait_for(read_head, conn.timeouts.read)
+        else:
+            head, remainder = await read_head
+        _validate_handshake(parse_response(head), key)
+        return WebSocketConnection(conn, initial_buffer=remainder, auto_pong=auto_pong)
+    except BaseException:
+        await conn.close()
+        raise
 
 
 def ws_connect_sync(url, **kwargs) -> WebSocketConnection:
     loop = asyncio.new_event_loop()
     thread = threading.Thread(target=loop.run_forever, daemon=True)
     thread.start()
-    ws = run_on_loop(loop, ws_connect(url, **kwargs))
+    try:
+        ws = run_on_loop(loop, ws_connect(url, **kwargs))
+    except BaseException:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=2)
+        loop.close()
+        raise
     ws._bind_loop(loop, thread)
     return ws
 
@@ -120,7 +130,13 @@ class Message:
 
 class WebSocketConnection:
     """Frames over a connection's byte stream. Masks outgoing client frames
-    (unless the caller supplied a mask, for malformed-frame testing)."""
+    by default; pass ``send_frame(..., auto_mask=False)`` to send a
+    genuinely unmasked (or otherwise caller-crafted) frame verbatim, e.g.
+    for RFC 6455 client-violation testing.
+
+    Note: a long-lived ``recv()`` call holds an executor thread (via the
+    underlying stream read) for the duration of the wait.
+    """
 
     def __init__(self, conn, *, initial_buffer: bytes = b"", auto_pong: bool = True):
         self._conn = conn
@@ -139,10 +155,10 @@ class WebSocketConnection:
     def closed(self) -> bool:
         return self._closed
 
-    async def send_frame(self, frame: Frame) -> None:
+    async def send_frame(self, frame: Frame, *, auto_mask: bool = True) -> None:
         if self._closed:
             raise WebSocketError("send on a closed WebSocket")
-        if frame.mask is None:
+        if auto_mask and frame.mask is None:
             frame = Frame(
                 opcode=frame.opcode,
                 payload=frame.payload,
@@ -230,8 +246,8 @@ class WebSocketConnection:
     def send_bytes_sync(self, b: bytes) -> None:
         run_on_loop(self._require_loop(), self.send_bytes(b))
 
-    def send_frame_sync(self, frame) -> None:
-        run_on_loop(self._require_loop(), self.send_frame(frame))
+    def send_frame_sync(self, frame, *, auto_mask: bool = True) -> None:
+        run_on_loop(self._require_loop(), self.send_frame(frame, auto_mask=auto_mask))
 
     def ping_sync(self, payload: bytes = b"") -> None:
         run_on_loop(self._require_loop(), self.ping(payload))

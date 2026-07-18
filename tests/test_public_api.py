@@ -9,5 +9,6 @@ def test_top_level_exports():
     assert hasattr(penpine, "render_report")
     assert hasattr(penpine, "render_run_summary")
     assert hasattr(penpine, "console")
+    assert hasattr(penpine, "Message")
     r = penpine.Request.from_url("http://h/a")
     assert r.method == "GET"

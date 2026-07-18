@@ -45,6 +45,15 @@ async def test_send_frame_with_explicit_mask_is_sent_verbatim():
     assert bytes(conn.sent)[1] & 0x80  # verbatim (already had a mask)
 
 
+async def test_send_frame_auto_mask_false_sends_unmasked():
+    conn = _Conn()
+    ws = WebSocketConnection(conn)
+    await ws.send_frame(Frame.text("x"), auto_mask=False)
+    assert bytes(conn.sent)[1] & 0x80 == 0  # MASK bit clear -> unmasked client frame
+    frame, _ = Frame.parse(bytes(conn.sent))
+    assert frame.payload == b"x"
+
+
 async def test_recv_reassembles_continuation_frames():
     server = (
         Frame(opcode=1, payload=b"he", fin=False).serialize()

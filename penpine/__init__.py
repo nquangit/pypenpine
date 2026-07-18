@@ -17,7 +17,7 @@ from penpine.logging import configure_logging, get_logger
 from penpine.render import RequestTableRenderer, console, render_report, render_run_summary
 from penpine.transport.connection import Connection
 from penpine.transport.engine import Engine
-from penpine.transport.websocket import WebSocketConnection, ws_connect, ws_connect_sync
+from penpine.transport.websocket import Message, WebSocketConnection, ws_connect, ws_connect_sync
 from penpine.transport.ws_frame import Frame
 
 __all__ = [
@@ -44,6 +44,7 @@ __all__ = [
     "FlowRunner",
     "Step",
     "Frame",
+    "Message",
     "WebSocketConnection",
     "ws_connect",
     "ws_connect_sync",

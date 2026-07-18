@@ -3,7 +3,11 @@ import hashlib
 import socket
 import struct
 import threading
+import time
 
+import pytest
+
+from penpine.transport.exceptions import WebSocketHandshakeError
 from penpine.transport.websocket import ws_connect, ws_connect_sync
 
 _GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -90,3 +94,28 @@ def test_ws_connect_sync_round_trip():
         assert msg.kind == "text" and msg.data == "sync-hi"
     finally:
         ws.close_sync()
+
+
+def test_ws_connect_sync_cleans_up_on_handshake_failure():
+    srv = socket.socket()
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+    host, port = srv.getsockname()
+
+    def serve_once():
+        c, _ = srv.accept()
+        while b"\r\n\r\n" not in c.recv(1024):
+            pass
+        c.sendall(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
+        c.close()
+
+    base = threading.active_count()
+    for _ in range(3):
+        threading.Thread(target=serve_once, daemon=True).start()
+        time.sleep(0.05)
+        with pytest.raises(WebSocketHandshakeError):
+            ws_connect_sync(f"ws://{host}:{port}/x")
+    srv.close()
+    time.sleep(0.3)  # let cleaned-up loop threads wind down
+    assert threading.active_count() <= base + 1  # no per-call loop-thread accumulation
