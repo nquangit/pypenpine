@@ -37,6 +37,13 @@ from penpine.attack.modules.sqli import (
     SqliGenerator,
     SqliValidator,
 )
+from penpine.attack.modules.ssrf import (
+    SSRF_MODULE,
+    SSRF_PAYLOADS,
+    SSRF_SIGNATURES,
+    SsrfGenerator,
+    SsrfValidator,
+)
 from penpine.attack.modules.ssti import (
     SSTI_MODULE,
     SSTI_TEMPLATES,
@@ -66,6 +73,7 @@ BUILTIN_MODULES = [
     FUZZ_MODULE,
     SSTI_MODULE,
     CRLF_MODULE,
+    SSRF_MODULE,
 ]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
@@ -111,6 +119,11 @@ __all__ = [
     "CRLF_TEMPLATES",
     "INJECTED_HEADER",
     "CRLF_MODULE",
+    "SsrfGenerator",
+    "SsrfValidator",
+    "SSRF_PAYLOADS",
+    "SSRF_SIGNATURES",
+    "SSRF_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
     "DifferentialModule",
