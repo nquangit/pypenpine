@@ -67,10 +67,12 @@ async def test_ws_connect_authed_lifts_auth_header():
 async def test_ws_connect_authed_explicit_header_wins():
     from penpine.flow.websocket import ws_connect_authed
 
-    host, port = _ws_serve_echo_header("X-Extra")
+    host, port = _ws_serve_echo_header("Authorization")
     ws = await ws_connect_authed(
-        f"ws://{host}:{port}/x", identity=_FakeIdentity(), headers=[("X-Extra", "v1")]
+        f"ws://{host}:{port}/x",
+        identity=_FakeIdentity(),
+        headers=[("Authorization", "explicit-value")],
     )
     msg = await ws.recv()
     await ws.close()
-    assert msg.data == "v1"
+    assert msg.data == "explicit-value"
