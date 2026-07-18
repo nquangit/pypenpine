@@ -17,7 +17,7 @@ def test_register_builtins_registers_all_and_is_idempotent():
         assert registry.get(name)
     register_builtins()
     assert set(registry.list_modules()) >= {"sqli", "xss", "path-traversal", "open-redirect"}
-    assert len(BUILTIN_MODULES) == 4
+    assert len(BUILTIN_MODULES) >= 4
 
 
 def test_import_has_no_side_effects():

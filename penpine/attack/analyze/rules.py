@@ -133,6 +133,13 @@ class SearchNameRule(ClassificationRule):
         return {AttackType.XSS, AttackType.SQLI} if _name(point) in _SEARCH_NAMES else set()
 
 
+class FuzzRule(ClassificationRule):
+    name = "fuzz"
+
+    def match(self, point) -> set:
+        return {AttackType.FUZZ}
+
+
 DEFAULT_RULES = [
     StringContextRule(),
     NumericValueRule(),
@@ -144,4 +151,5 @@ DEFAULT_RULES = [
     HostHeaderRule(),
     ProxyHeaderRule(),
     SearchNameRule(),
+    FuzzRule(),
 ]

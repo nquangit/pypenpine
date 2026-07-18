@@ -9,6 +9,12 @@ from penpine.attack.modules.differential import (
     DifferentialModule,
     TimeSqliModule,
 )
+from penpine.attack.modules.fuzz import (
+    FUZZ_MODULE,
+    FUZZ_PAYLOADS,
+    FuzzGenerator,
+    FuzzValidator,
+)
 from penpine.attack.modules.redirect import (
     CANARY_HOST,
     REDIRECT_MODULE,
@@ -39,7 +45,7 @@ from penpine.attack.modules.xss import (
 )
 from penpine.attack.registry import RegistrableModule, register
 
-BUILTIN_MODULES = [SQLI_MODULE, XSS_MODULE, TRAVERSAL_MODULE, REDIRECT_MODULE]
+BUILTIN_MODULES = [SQLI_MODULE, XSS_MODULE, TRAVERSAL_MODULE, REDIRECT_MODULE, FUZZ_MODULE]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
 
@@ -71,6 +77,10 @@ __all__ = [
     "REDIRECT_PAYLOADS",
     "CANARY_HOST",
     "REDIRECT_MODULE",
+    "FuzzGenerator",
+    "FuzzValidator",
+    "FUZZ_PAYLOADS",
+    "FUZZ_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
     "DifferentialModule",
