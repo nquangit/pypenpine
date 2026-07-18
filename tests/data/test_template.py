@@ -52,3 +52,24 @@ def test_build_mapping_precedence_data_lt_context_lt_extra():
 def test_build_mapping_accepts_plain_dicts():
     mapping = build_mapping(context={"a": 1}, data={"b": 2})
     assert mapping == {"a": 1, "b": 2}
+
+
+def test_render_text_substitutes_and_strict():
+    import pytest
+
+    from penpine.data.exceptions import TemplateError
+    from penpine.data.template import render_text
+
+    assert render_text("hi {{name}} #{{id}}", {"name": "al", "id": 7}) == "hi al #7"
+    assert render_text("keep {{missing}}", {}, strict=False) == "keep {{missing}}"
+    with pytest.raises(TemplateError):
+        render_text("{{missing}}", {}, strict=True)
+
+
+def test_render_request_still_works_via_render_text():
+    from penpine.core.message import Request
+    from penpine.data.template import render
+
+    req = Request.from_url("http://h/p?q={{v}}")
+    out = render(req, {"v": "X"})
+    assert "q=X" in out.target
