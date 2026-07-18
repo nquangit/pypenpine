@@ -78,6 +78,20 @@ async def test_ws_connect_authed_explicit_header_wins():
     assert msg.data == "explicit-value"
 
 
+class _NoAuthIdentity:
+    manager = None
+
+
+async def test_ws_connect_authed_identity_without_manager_connects_plainly():
+    from penpine.flow.websocket import ws_connect_authed
+
+    host, port = _ws_serve_echo_header("Authorization")
+    ws = await ws_connect_authed(f"ws://{host}:{port}/x", identity=_NoAuthIdentity())
+    msg = await ws.recv()
+    await ws.close()
+    assert msg.data == ""  # no auth header lifted, no crash
+
+
 def _ws_serve_json(reply_for):
     """WS server: for each received message, reply with reply_for(message_str).
     Accepts connections in a loop (one thread each)."""

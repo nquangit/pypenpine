@@ -140,6 +140,8 @@ async def recv_reply(ws, *, recv_count=1, recv_timeout=5.0, content_type="applic
         try:
             msg = await asyncio.wait_for(ws.recv(), recv_timeout)
         except (TimeoutError, WebSocketError):
+            # Timeout or unclean close yields an empty/partial reply that flows to validators
+            # and the size-delta oracle as a "no reply" signal; this is intentional.
             break
         if msg.kind == "close":
             break

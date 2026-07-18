@@ -20,8 +20,8 @@ async def ws_connect_authed(
     dummy = Request.from_url(f"{http}://{host}:{port}{target}")
 
     authed = dummy
-    if identity is not None:
-        manager = identity.manager
+    manager = identity.manager if identity is not None else None
+    if manager is not None:
         await manager.ensure_fresh()
         authed = manager.apply(dummy)
     elif session is not None and scheme is not None:
