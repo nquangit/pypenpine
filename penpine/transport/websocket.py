@@ -127,8 +127,13 @@ class WebSocketConnection:
         self._buf = bytearray(initial_buffer)
         self._auto_pong = auto_pong
         self._closed = False
-        self._loop = None
-        self._loop_thread = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._loop_thread: threading.Thread | None = None
+
+    def _require_loop(self) -> asyncio.AbstractEventLoop:
+        if self._loop is None:
+            raise WebSocketError("the *_sync API requires a connection from ws_connect_sync")
+        return self._loop
 
     @property
     def closed(self) -> bool:
@@ -220,28 +225,28 @@ class WebSocketConnection:
         self._loop_thread = thread
 
     def send_text_sync(self, s: str) -> None:
-        run_on_loop(self._loop, self.send_text(s))
+        run_on_loop(self._require_loop(), self.send_text(s))
 
     def send_bytes_sync(self, b: bytes) -> None:
-        run_on_loop(self._loop, self.send_bytes(b))
+        run_on_loop(self._require_loop(), self.send_bytes(b))
 
     def send_frame_sync(self, frame) -> None:
-        run_on_loop(self._loop, self.send_frame(frame))
+        run_on_loop(self._require_loop(), self.send_frame(frame))
 
     def ping_sync(self, payload: bytes = b"") -> None:
-        run_on_loop(self._loop, self.ping(payload))
+        run_on_loop(self._require_loop(), self.ping(payload))
 
     def recv_sync(self):
-        return run_on_loop(self._loop, self.recv())
+        return run_on_loop(self._require_loop(), self.recv())
 
     def recv_frame_sync(self):
-        return run_on_loop(self._loop, self.recv_frame())
+        return run_on_loop(self._require_loop(), self.recv_frame())
 
     def close_sync(self, code: int = 1000, reason: str = "") -> None:
-        run_on_loop(self._loop, self.close(code, reason))
-        loop, thread = getattr(self, "_loop", None), getattr(self, "_loop_thread", None)
-        if loop is not None:
-            loop.call_soon_threadsafe(loop.stop)
-            thread.join(timeout=2)
-            loop.close()
-            self._loop = None
+        loop = self._require_loop()
+        run_on_loop(loop, self.close(code, reason))
+        loop.call_soon_threadsafe(loop.stop)
+        if self._loop_thread is not None:
+            self._loop_thread.join(timeout=2)
+        loop.close()
+        self._loop = None
