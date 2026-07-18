@@ -8,14 +8,11 @@ returns a synthetic Response so the existing validators/modules work unchanged.
 
 from __future__ import annotations
 
-import asyncio
 from urllib.parse import urlsplit
 
 from penpine.attack.models import InjectionPoint
-from penpine.core.body.base import Body
-from penpine.core.headers import Headers
-from penpine.core.message import Request, Response
-from penpine.transport.websocket import ws_connect
+from penpine.core.message import Request
+from penpine.transport.websocket import recv_reply, ws_connect
 
 
 def ws_message_request(url: str, message: str, *, json: bool = True) -> Request:
@@ -73,7 +70,6 @@ class WebSocketSender:
 
     async def send(self, request):
         ws = await ws_connect(self._url, **self._connect_kw)
-        replies: list[str] = []
         try:
             for m in self._prelude:
                 await ws.send_text(m)
@@ -82,25 +78,12 @@ class WebSocketSender:
                 await ws.send_bytes(message.encode("utf-8"))
             else:
                 await ws.send_text(message)
-            for _ in range(self._recv_count):
-                try:
-                    msg = await asyncio.wait_for(ws.recv(), self._recv_timeout)
-                except TimeoutError:
-                    break
-                if msg.kind == "close":
-                    break
-                replies.append(
-                    msg.data if isinstance(msg.data, str) else msg.data.decode("utf-8", "replace")
-                )
+            ctype = "application/octet-stream" if self._binary else "application/json"
+            return await recv_reply(
+                ws, recv_count=self._recv_count, recv_timeout=self._recv_timeout, content_type=ctype
+            )
         finally:
             await ws.close()
-        ctype = "application/octet-stream" if self._binary else "application/json"
-        return Response(
-            status_code=200,
-            reason="OK",
-            headers=Headers([("Content-Type", ctype)]),
-            body=Body("".join(replies).encode("utf-8")),
-        )
 
 
 def _ws_run(url, message, attack, json, points, sender, max_concurrency, sender_kw, *, sync):

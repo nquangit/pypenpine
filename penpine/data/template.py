@@ -12,6 +12,18 @@ from penpine.data.profile import DataProfile
 _PLACEHOLDER = re.compile(r"\{\{\s*([^}\s]+)\s*\}\}")
 
 
+def render_text(text: str, mapping, *, strict: bool = True) -> str:
+    def _sub(match):
+        key = match.group(1)
+        if key in mapping:
+            return str(mapping[key])
+        if strict:
+            raise TemplateError(f"unknown placeholder: {{{{{key}}}}}")
+        return match.group(0)
+
+    return _PLACEHOLDER.sub(_sub, text)
+
+
 def build_mapping(context=None, data=None, extra=None) -> dict:
     """Merge sources with precedence data < context < extra."""
     mapping: dict = {}
@@ -26,15 +38,7 @@ def build_mapping(context=None, data=None, extra=None) -> dict:
 
 def render(request, mapping, *, strict=True):
     def _replace(text: str) -> str:
-        def _sub(match):
-            key = match.group(1)
-            if key in mapping:
-                return str(mapping[key])
-            if strict:
-                raise TemplateError(f"unknown placeholder: {{{{{key}}}}}")
-            return match.group(0)
-
-        return _PLACEHOLDER.sub(_sub, text)
+        return render_text(text, mapping, strict=strict)
 
     new = request.with_target(_replace(request.target))
     new = new.with_headers(
