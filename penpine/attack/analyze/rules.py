@@ -140,6 +140,17 @@ class FuzzRule(ClassificationRule):
         return {AttackType.FUZZ}
 
 
+class TemplateInjectionRule(ClassificationRule):
+    name = "template-injection"
+
+    def match(self, point) -> set:
+        if point.kind in _BODY_KINDS and not is_empty(point.value) and not is_numeric(point.value):
+            return {AttackType.SSTI}
+        if _name(point) in _SEARCH_NAMES:
+            return {AttackType.SSTI}
+        return set()
+
+
 DEFAULT_RULES = [
     StringContextRule(),
     NumericValueRule(),
@@ -152,4 +163,5 @@ DEFAULT_RULES = [
     ProxyHeaderRule(),
     SearchNameRule(),
     FuzzRule(),
+    TemplateInjectionRule(),
 ]

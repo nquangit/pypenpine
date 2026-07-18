@@ -30,6 +30,12 @@ from penpine.attack.modules.sqli import (
     SqliGenerator,
     SqliValidator,
 )
+from penpine.attack.modules.ssti import (
+    SSTI_MODULE,
+    SSTI_TEMPLATES,
+    SstiGenerator,
+    SstiValidator,
+)
 from penpine.attack.modules.traversal import (
     TRAVERSAL_MODULE,
     TRAVERSAL_PAYLOADS,
@@ -45,7 +51,14 @@ from penpine.attack.modules.xss import (
 )
 from penpine.attack.registry import RegistrableModule, register
 
-BUILTIN_MODULES = [SQLI_MODULE, XSS_MODULE, TRAVERSAL_MODULE, REDIRECT_MODULE, FUZZ_MODULE]
+BUILTIN_MODULES = [
+    SQLI_MODULE,
+    XSS_MODULE,
+    TRAVERSAL_MODULE,
+    REDIRECT_MODULE,
+    FUZZ_MODULE,
+    SSTI_MODULE,
+]
 DIFFERENTIAL_MODULES = [BOOLEAN_SQLI_MODULE, TIME_SQLI_MODULE]
 
 
@@ -81,6 +94,10 @@ __all__ = [
     "FuzzValidator",
     "FUZZ_PAYLOADS",
     "FUZZ_MODULE",
+    "SstiGenerator",
+    "SstiValidator",
+    "SSTI_TEMPLATES",
+    "SSTI_MODULE",
     "BUILTIN_MODULES",
     "register_builtins",
     "DifferentialModule",
