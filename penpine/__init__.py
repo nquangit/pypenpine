@@ -14,6 +14,7 @@ from penpine.data.context import Context
 from penpine.data.identity import Identity
 from penpine.flow.flow import Flow
 from penpine.flow.step import Step
+from penpine.flow.websocket import ws_close, ws_open, ws_send
 from penpine.logging import configure_logging, get_logger
 from penpine.render import RequestTableRenderer, console, render_report, render_run_summary
 from penpine.transport.connection import Connection
@@ -52,4 +53,7 @@ __all__ = [
     "WebSocketConnection",
     "ws_connect",
     "ws_connect_sync",
+    "ws_open",
+    "ws_send",
+    "ws_close",
 ]
