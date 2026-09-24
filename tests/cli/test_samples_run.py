@@ -24,6 +24,7 @@ SAMPLES = [
     "data_sharing",
     "byo_test_cases",
     "flow_basic",
+    "flow_with_identity",
     "flow_attacks",
     "flow_login",
     "websocket",

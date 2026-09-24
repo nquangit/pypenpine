@@ -35,7 +35,7 @@ for f in report.findings:
 - [L1 — Sending over raw sockets](#l1--sending-over-raw-sockets)
 - [L2 — Auth, sessions & refresh](#l2--auth-sessions-and-refresh) — incl. [multi-host & token refresh](#multi-host-auth-and-token-refresh)
 - [L3 — Identities & data sharing](#l3--identities-and-runtime-data-sharing)
-- [Flows — multi-step scenarios](#flows--multi-step-scenarios) · [attacking flows](#attacking-flows) · [custom logins](#custom-logins)
+- [Flows — multi-step scenarios](#flows--multi-step-scenarios) · [running as an identity](#running-a-flow-as-an-identity) · [attacking flows](#attacking-flows) · [custom logins](#custom-logins)
 - [L4 — Analyze, attack, validate](#l4--analyze-attack-validate)
 - [Logging](#logging) · [Exceptions](#exceptions) · [Testing](#testing) · [Development](#development)
 
@@ -106,7 +106,7 @@ python -m samples.multi_host_auth
 
 | Sample(s) | What it shows |
 |-----------|---------------|
-| `flow_basic`, `flow_login`, `flow_attacks` | multi-step scenarios, flow-based login, attacking a flow |
+| `flow_basic`, `flow_with_identity`, `flow_login`, `flow_attacks` | multi-step scenarios, running a flow as an identity, flow-based login, attacking a flow |
 | `multi_host_auth` | multi-host cookie + JWT via refresh-token exchange |
 | `data_sharing` | cross-identity capture/replay (IDOR) |
 | `custom_module`, `custom_payload`, `custom_validator`, `custom_rule` | extending the attack engine |
@@ -378,6 +378,41 @@ cross-user (IDOR) scenarios. By default a flow **fails fast**: the first
 unrecovered step raises `StepError` with the partial `FlowResult` attached;
 pass `continue_on_error=True` to record errors and keep going. Session-expiry
 re-login is handled underneath by the L2 `SessionManager`, not the flow.
+
+### Running a flow as an identity
+
+You **run** a flow (`run_sync()`); you don't `send` it. To run it as an
+authenticated user, set the `Identity` as the flow's `actor` — every step then
+sends through that identity (auth + scheme applied), and `run_sync()` returns a
+`FlowResult`, **not** a `Response`.
+
+```python
+from penpine.data.context import Context
+from penpine.data.profile import DataProfile
+
+quang = Identity("quang", auth_profile=profile,
+                 data=DataProfile("quang", {"debit_account": "27784761"}))
+
+flow = Flow(actor=quang, context=Context({"amount": 1000}), steps=[
+    # {{debit_account}} comes from the actor's data; {{amount}} from the flow context
+    Step("balance", request=Request.from_url("https://bank/accounts/{{debit_account}}/balance"),
+         capture=[Extract("balance", json="$.balance")]),
+    Step("transfer", request=transfer_req),
+])
+
+result = flow.run_sync()                       # FlowResult, not Response
+print(result.summary(), result.ok)             # {'ran': 2, ...}  True
+resp = result.step("transfer").response        # read a step's Response
+print(resp.status_code, resp.body.raw)
+```
+
+Inside a flow, actor data reaches you two ways: `{{ }}` placeholders in a
+request resolve from the **actor's `data`** (a `DataProfile`) merged with the
+flow's captured **context** (context wins on a clash); and an escape-hatch
+`action=` step receives a `FlowContext` exposing `fc.actor` (the identity, so
+`fc.actor.data.require("debit_account")`) and `fc.ctx` (the flow context). Note
+`Flow(context=...)` wants a `Context`, not a plain `dict`. See
+`samples/flow_with_identity.py` for the full runnable example.
 
 ### Attacking flows
 
