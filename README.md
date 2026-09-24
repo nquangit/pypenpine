@@ -276,10 +276,13 @@ scheme = MultiScheme([
 
 **Exchange a refresh token for access tokens** with `FlowAuthProvider`: one Flow
 logs in (establishing the cookie + refresh token), a second Flow exchanges the
-refresh token for a fresh access token. The provider carries the cookie forward,
-picks up a rotated refresh token, and reads the JWT's `exp` claim so the
-`SessionManager` refreshes *before* each expiry instead of re-running the full
-login. A failed refresh falls back to a full re-login. The `refresh_flow` is
+refresh token for a fresh access token. When login itself yields no access token
+(only a refresh token), the provider runs the refresh flow right away so the
+session is ready before the first send — no cold-start `Bearer None`. The
+provider carries the cookie forward, picks up a rotated refresh token, and reads
+the JWT's `exp` claim so the `SessionManager` refreshes *before* each expiry
+instead of re-running the full login. A failed refresh falls back to a full
+re-login. The `refresh_flow` is
 seeded with the current session's cookies + data, so its steps can reference
 `{{refresh_token}}` (or `{{JSESSIONID}}`); where the token lives in the response
 is the flow's `Extract`'s job — header, JSON body, `Set-Cookie`, or regex — so
@@ -310,12 +313,13 @@ scheme = MultiScheme([
 profile = AuthProfile(name="demo", provider=provider, scheme=scheme)
 mgr = profile.manager()                # a SessionManager (pass auth_engine/send_engine to proxy)
 
-mgr.send_sync(Request.from_url("https://web.example/home"))      # auto-login; cookie attached
-mgr.send_sync(Request.from_url("https://api.example/transfer"))  # auto-refresh; bearer attached
+mgr.send_sync(Request.from_url("https://web.example/home"))      # auto-login (+ first token); cookie attached
+mgr.send_sync(Request.from_url("https://api.example/transfer"))  # bearer attached
 ```
 
-Under the hood that runs `login → GET web/home (cookie) → token exchange → GET
-api/transfer (bearer)` — each host sees only its own credential. The runnable
+Under the hood the first send runs `login → token exchange` (so the session is
+ready), then `GET web/home` gets the cookie and `GET api/transfer` the bearer —
+each host sees only its own credential. The runnable
 `samples/multi_host_auth.py` prints exactly that lifecycle; run it with
 `python -m samples.multi_host_auth`.
 

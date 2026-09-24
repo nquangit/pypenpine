@@ -156,9 +156,11 @@ class FlowAuthProvider(AuthProvider):
     token). If the refresh flow fails and ``relogin_on_refresh_error`` is set, a
     full ``login`` is run, so an expired refresh token self-heals.
 
-    When login yields a refresh token but no access token yet, ``expires_at`` is
-    set to ``0.0`` (already expired) so the next send runs ``refresh`` to obtain
-    the first access token — no recursion, since that refresh then succeeds.
+    When login yields a refresh token but no access token yet, the provider runs
+    the refresh flow immediately, so the returned session already carries an
+    access token and the very first send does not go out as ``Bearer None``. As
+    a safety net, a session still left without a token but holding a refresh
+    token is marked already-expired so the next send exchanges it.
     """
 
     def __init__(
@@ -188,14 +190,15 @@ class FlowAuthProvider(AuthProvider):
         return (await run_flow.run()).context
 
     def _session(self, ctx: dict, *, carry: Session | None = None) -> Session:
-        # Carry the old cookies/data forward, then let the fresh context win.
+        # Carry the old cookies/data forward, then let the fresh context win --
+        # but a missing optional capture (None) must not wipe the carried value.
         cookies = dict(carry.cookies) if carry else {}
         data = dict(carry.data) if carry else {}
         for k in self._cookie_keys:
-            if k in ctx:
+            if ctx.get(k) is not None:
                 cookies[k] = ctx[k]
         for k in self._data_keys:
-            if k in ctx:
+            if ctx.get(k) is not None:
                 data[k] = ctx[k]  # picks up a rotated refresh token
         token = ctx.get(self._token_key)
         if token is not None:
@@ -213,19 +216,34 @@ class FlowAuthProvider(AuthProvider):
             expires_at=expires_at,
         )
 
+    async def _exchange(self, engine, session) -> Session:
+        """Run the refresh flow against `session`'s material (seeding its cookies
+        + data into the flow context) and map the result, carrying the old
+        cookies/data forward. Raises StepError if the flow fails."""
+        seed = {**dict(session.cookies), **(session.data or {})}
+        ctx = await self._run(self._refresh_flow, engine, seed=seed)
+        return self._session(ctx, carry=session)
+
     async def login(self, engine) -> Session:
         try:
             ctx = await self._run(self._login_flow, engine)
         except StepError as exc:
             raise LoginError(f"login flow failed at step {exc.name!r}") from exc
-        return self._session(ctx)
+        session = self._session(ctx)
+        if session.token is None and session.data.get("refresh_token"):
+            # Login gave us a refresh token but no access token; fetch the first
+            # access token now so the first send carries a real bearer instead of
+            # `Bearer None`. No relogin fallback here — that would recurse.
+            try:
+                session = await self._exchange(engine, session)
+            except StepError as exc:
+                raise LoginError(f"initial token exchange failed at step {exc.name!r}") from exc
+        return session
 
     async def refresh(self, engine, session) -> Session:
-        seed = {**dict(session.cookies), **(session.data or {})}
         try:
-            ctx = await self._run(self._refresh_flow, engine, seed=seed)
+            return await self._exchange(engine, session)
         except StepError as exc:
             if self._relogin:
                 return await self.login(engine)
             raise RefreshError(f"refresh flow failed at step {exc.name!r}") from exc
-        return self._session(ctx, carry=session)
