@@ -67,7 +67,10 @@ class Flow:
             results.append(result)
             if result.status == "failed" and not self._continue_on_error:
                 partial = FlowResult(steps=results, context=ctx.to_dict())
-                raise StepError(step.name, index=i, result=partial)
+                status = getattr(result.response, "status_code", None)
+                raise StepError(
+                    step.name, index=i, result=partial, cause=result.error, status=status
+                ) from result.error
         return FlowResult(steps=results, context=ctx.to_dict())
 
     async def _attempt(self, step, ctx, actor):

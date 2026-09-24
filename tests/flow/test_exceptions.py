@@ -19,3 +19,17 @@ def test_step_error_defaults():
     err = StepError("activate")
     assert err.index is None
     assert err.result is None
+    assert err.cause is None
+    assert err.status is None
+
+
+def test_step_error_message_spells_out_cause_and_status():
+    cause = ValueError("boom")
+    err = StepError("pay", index=1, cause=cause, status=401)
+    assert err.cause is cause
+    assert err.status == 401
+    text = str(err)
+    assert "pay" in text
+    assert "index 1" in text
+    assert "HTTP 401" in text
+    assert "ValueError: boom" in text

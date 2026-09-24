@@ -74,6 +74,35 @@ async def test_fail_fast_raises_step_error_with_partial_result():
     assert [s.status for s in err.result] == ["ok", "failed"]  # third never ran
 
 
+async def test_step_error_surfaces_cause_and_status_and_chains():
+    from penpine.data.exceptions import ExtractError
+
+    # A required capture the response doesn't satisfy -> ExtractError on a 401.
+    json_hdr = b"Content-Type: application/json\r\n"
+    resp = response(b"{}", status=b"401 Unauthorized", headers=json_hdr)
+    actor = FakeActor(script=[resp])
+    flow = Flow(
+        actor=actor,
+        steps=[
+            Step(
+                "init_transaction",
+                request=Request.from_url("http://t/txn"),
+                capture=[Extract("txnId", json="$.txnId")],
+            ),
+        ],
+    )
+    with pytest.raises(StepError) as ei:
+        await flow.run()
+    err = ei.value
+    assert err.name == "init_transaction"
+    assert isinstance(err.cause, ExtractError)
+    assert err.status == 401
+    assert "HTTP 401" in str(err)
+    assert "ExtractError" in str(err)
+    # chained so the real traceback is shown, not swallowed
+    assert err.__cause__ is err.cause
+
+
 async def test_raising_guard_becomes_failed_step_with_partial_result():
     def boom_guard(ctx):
         raise ValueError("guard blew up")
