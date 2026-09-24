@@ -375,8 +375,14 @@ for step in result:
 A step may name its own `actor` (any `Identity`/`SessionManager`/`Engine`), so a
 flow can drive multiple identities against one shared context — the basis for
 cross-user (IDOR) scenarios. By default a flow **fails fast**: the first
-unrecovered step raises `StepError` with the partial `FlowResult` attached;
-pass `continue_on_error=True` to record errors and keep going. Session-expiry
+unrecovered step raises `StepError`, whose message spells out the real reason —
+the failing step, the HTTP status it got, and the underlying exception (e.g.
+`flow step 'transfer' failed (index 2) — HTTP 401; ExtractError: required value
+not found for key 'txnId'`) — and which is chained (`raise ... from`) so the
+original traceback shows too. Inspect it further via `exc.cause` (the underlying
+exception), `exc.status`, and `exc.result` (the partial `FlowResult`, so
+`exc.result.step("transfer").response` gives the offending response). Pass
+`continue_on_error=True` to record errors and keep going instead. Session-expiry
 re-login is handled underneath by the L2 `SessionManager`, not the flow.
 
 ### Running a flow as an identity
