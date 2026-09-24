@@ -279,24 +279,45 @@ logs in (establishing the cookie + refresh token), a second Flow exchanges the
 refresh token for a fresh access token. The provider carries the cookie forward,
 picks up a rotated refresh token, and reads the JWT's `exp` claim so the
 `SessionManager` refreshes *before* each expiry instead of re-running the full
-login. A failed refresh falls back to a full re-login.
+login. A failed refresh falls back to a full re-login. The `refresh_flow` is
+seeded with the current session's cookies + data, so its steps can reference
+`{{refresh_token}}` (or `{{JSESSIONID}}`); where the token lives in the response
+is the flow's `Extract`'s job — header, JSON body, `Set-Cookie`, or regex — so
+you never touch the provider when the token moves.
+
+**Wire it up end to end.** The `provider` and the `scheme` are the two arguments
+to an `AuthProfile`; `profile.manager()` gives a `SessionManager` whose `send`
+logs in / refreshes as needed and applies the scheme — you just send:
 
 ```python
-from penpine.auth import FlowAuthProvider
+from penpine import Request
+from penpine.auth import (
+    AuthProfile, FlowAuthProvider,
+    MultiScheme, HostScoped, CookieAuth, BearerAuth,
+)
 
 provider = FlowAuthProvider(
-    login_flow, refresh_flow,
-    token_key="access_token",     # -> Session.token (its JWT `exp` sets expiry)
-    cookie_keys=["JSESSIONID"],   # -> Session.cookies
-    data_keys=["refresh_token"],  # -> Session.data, carried across each refresh
+    login_flow, refresh_flow,          # your two Flows (see L0/Flows for building requests)
+    token_key="access_token",          # -> Session.token (its JWT `exp` sets expiry)
+    cookie_keys=["JSESSIONID"],        # -> Session.cookies
+    data_keys=["refresh_token"],       # -> Session.data, carried across each refresh
 )
+scheme = MultiScheme([
+    HostScoped(CookieAuth(), "web.example"),   # cookie only to the web host
+    HostScoped(BearerAuth(), "api.example"),   # bearer only to the API host
+])
+
+profile = AuthProfile(name="demo", provider=provider, scheme=scheme)
+mgr = profile.manager()                # a SessionManager (pass auth_engine/send_engine to proxy)
+
+mgr.send_sync(Request.from_url("https://web.example/home"))      # auto-login; cookie attached
+mgr.send_sync(Request.from_url("https://api.example/transfer"))  # auto-refresh; bearer attached
 ```
 
-The `refresh_flow` is seeded with the current session's cookies + data, so its
-steps can reference `{{refresh_token}}` (or `{{JSESSIONID}}`). Where the token
-lives is entirely the flow's `Extract`'s job — header, JSON body, `Set-Cookie`,
-or a regex — so you never touch the provider when the token moves. See
-`samples/multi_host_auth.py` for a runnable end-to-end example.
+Under the hood that runs `login → GET web/home (cookie) → token exchange → GET
+api/transfer (bearer)` — each host sees only its own credential. The runnable
+`samples/multi_host_auth.py` prints exactly that lifecycle; run it with
+`python -m samples.multi_host_auth`.
 
 ## L3 — Identities and runtime data sharing
 

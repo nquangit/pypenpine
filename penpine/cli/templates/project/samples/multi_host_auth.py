@@ -1,21 +1,23 @@
-"""Two-host session: a cookie for the web host + a refresh-token-derived JWT for
-the API host (offline, no sockets).
+"""Two-host session, end to end: a cookie for the web host + a refresh-token-
+derived JWT for the API host (offline, no sockets).
 
 Real targets often split auth across hosts: a cookie (JSESSIONID) keeps the main
 web session, while important actions on an API host need a short-lived JWT that
-you obtain by exchanging a long-lived refresh token. This sample wires that up:
+you obtain by exchanging a long-lived refresh token. This sample wires the whole
+thing and then just calls `send` -- login, refresh, and attaching the right
+credential to each host all happen automatically inside the SessionManager.
 
-* FlowAuthProvider(login_flow, refresh_flow): login establishes the cookie +
-  refresh token; refresh exchanges the refresh token for a fresh access token,
-  carrying the cookie forward. When login has no access token yet, the session
-  is born already-expired so the first send triggers the exchange.
-* MultiScheme([HostScoped(CookieAuth(), web), HostScoped(BearerAuth(), api)]):
-  the cookie only rides requests to the web host, the bearer only to the API
-  host -- no cross-leak.
+The pieces, and where each one goes:
+
+    provider = FlowAuthProvider(login_flow, refresh_flow, ...)  # HOW to get creds
+    scheme   = MultiScheme([HostScoped(CookieAuth(), web),      # WHERE creds ride
+                            HostScoped(BearerAuth(), api)])
+    profile  = AuthProfile(name, provider=provider, scheme=scheme)   # bundle
+    mgr      = profile.manager(...)                                  # a SessionManager
+    mgr.send_sync(request)   # logs in / refreshes as needed, applies the scheme
 
     python -m samples.multi_host_auth
 """
-import asyncio
 import base64
 import json
 import time
@@ -38,25 +40,32 @@ def _make_jwt(payload: dict) -> str:
     return f"{seg({'alg': 'none'})}.{seg(payload)}.sig"
 
 
+def _resp(body: bytes, extra_headers: bytes = b"") -> object:
+    head = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n%sContent-Length: %d\r\n\r\n%s"
+    return parse_response(head % (extra_headers, len(body), body))
+
+
 class _FakeEngine:
-    """Serves the login (cookie + refresh token) and the token exchange (JWT)."""
+    """Routes by path: the login endpoint, the token-exchange endpoint, and the
+    two real endpoints. Records every request it sees on `.sent`."""
+
+    def __init__(self):
+        self.sent = []
 
     async def send(self, request):
-        if "/token" in request.target:  # refresh exchange
+        self.sent.append(request)
+        target = request.target
+        if "/login" in target:  # establish the web cookie + a refresh token
+            return _resp(b'{"refresh_token": "R1"}', b"Set-Cookie: JSESSIONID=SID-abc; Path=/\r\n")
+        if "/token" in target:  # exchange the refresh token for a fresh JWT
             jwt = _make_jwt({"exp": int(time.time()) + 3600})
-            body = b'{"access_token": "%s"}' % jwt.encode()
-            head = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s"
-            return parse_response(head % (len(body), body))
-        # login: hand out the web cookie + a refresh token, but no access token yet
-        body = b'{"refresh_token": "R1"}'
-        head = (
-            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
-            b"Set-Cookie: JSESSIONID=SID-abc; Path=/\r\nContent-Length: %d\r\n\r\n%s"
-        )
-        return parse_response(head % (len(body), body))
+            return _resp(b'{"access_token": "%s"}' % jwt.encode())
+        return _resp(b'{"ok": true}')  # the actual protected endpoints
 
 
 def build_profile() -> AuthProfile:
+    # HOW to get credentials: log in (cookie + refresh token), then exchange the
+    # refresh token for an access token whenever it is needed.
     login_flow = Flow(steps=[
         Step("login", request=Request.from_url(f"https://{WEB_HOST}/login"),
              capture=[Extract("JSESSIONID", cookie="JSESSIONID"),
@@ -68,13 +77,14 @@ def build_profile() -> AuthProfile:
     ])
     provider = FlowAuthProvider(
         login_flow, refresh_flow,
-        token_key="access_token",
-        cookie_keys=["JSESSIONID"],
-        data_keys=["refresh_token"],
+        token_key="access_token",     # -> Session.token (its JWT `exp` sets expiry)
+        cookie_keys=["JSESSIONID"],   # -> Session.cookies
+        data_keys=["refresh_token"],  # -> Session.data, carried across each refresh
     )
+    # WHERE credentials ride: cookie only to the web host, bearer only to the API host.
     scheme = MultiScheme([
-        HostScoped(CookieAuth(), WEB_HOST),   # cookie only to the web host
-        HostScoped(BearerAuth(), API_HOST),   # bearer only to the API host
+        HostScoped(CookieAuth(), WEB_HOST),
+        HostScoped(BearerAuth(), API_HOST),
     ])
     return AuthProfile(name="demo", provider=provider, scheme=scheme)
 
@@ -83,24 +93,33 @@ def demo():
     profile = build_profile()
     engine = _FakeEngine()
 
-    # 1) login: cookie + refresh token, no access token -> already expired.
-    session = asyncio.run(profile.provider.login(engine))
-    print("after login   : cookie =", session.cookies,
-          "| token =", session.token, "| expired =", session.is_expired())
+    # One SessionManager drives everything. Both the auth flows (login/refresh)
+    # and the actual sends go through our fake engine here; in real use you'd
+    # pass a real Engine (optionally one per identity, routed via a proxy).
+    with profile.manager(auth_engine=engine, send_engine=engine) as mgr:
+        # First call to the web host: no session yet -> auto-login, cookie attached.
+        mgr.send_sync(Request.from_url(f"https://{WEB_HOST}/home"))
+        # First call to the API host: access token is due -> auto-refresh, bearer attached.
+        mgr.send_sync(Request.from_url(f"https://{API_HOST}/transfer"))
 
-    # 2) refresh: exchange the refresh token for a JWT, cookie carried over.
-    session = asyncio.run(profile.provider.refresh(engine, session))
-    print("after refresh : cookie =", session.cookies,
-          "| token =", session.token[:24] + "...")
+    # What the engine actually saw, in order -- the full lifecycle:
+    print("request lifecycle:")
+    for r in engine.sent:
+        host = r.meta.host or r.headers.get("Host", "?")
+        print(f"  {r.method:4} {host}{r.target.split('?')[0]}")
 
-    # 3) host scoping: each request gets only its own material.
-    web = profile.scheme.apply(Request.from_url(f"https://{WEB_HOST}/home"), session)
-    api = profile.scheme.apply(Request.from_url(f"https://{API_HOST}/transfer"), session)
-    print("web request   : Cookie =", web.headers.get("Cookie"),
-          "| Authorization =", web.headers.get("Authorization"))
-    print("api request   : Cookie =", api.headers.get("Cookie"),
-          "| Authorization =", (api.headers.get("Authorization") or "")[:24] + "...")
-    return session
+    # Prove the scoping on the two protected requests: each host got only its own
+    # credential (the login/token-exchange requests are the auth plumbing).
+    home = next(r for r in engine.sent if r.target.startswith("/home"))
+    transfer = next(r for r in engine.sent if r.target.startswith("/transfer"))
+    print("\nscoping on the wire:")
+    print("  web /home     -> Cookie:", home.headers.get("Cookie"),
+          "| Authorization:", home.headers.get("Authorization"))
+    print("  api /transfer -> Cookie:", transfer.headers.get("Cookie"),
+          "| Authorization:", (transfer.headers.get("Authorization") or "")[:28] + "...")
+    print("\nsession now holds token =", mgr.session.token is not None,
+          "| cookies =", mgr.session.cookies)
+    return mgr.session
 
 
 if __name__ == "__main__":
