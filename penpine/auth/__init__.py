@@ -12,6 +12,7 @@ from penpine.auth.manager import SessionManager
 from penpine.auth.profile import AuthProfile
 from penpine.auth.provider import (
     AuthProvider,
+    FlowAuthProvider,
     FlowLoginProvider,
     FormLoginProvider,
     JsonLoginProvider,
@@ -23,9 +24,11 @@ from penpine.auth.scheme import (
     BearerAuth,
     CookieAuth,
     HeaderAuth,
+    HostScoped,
     MultiScheme,
 )
 from penpine.auth.session import Session
+from penpine.auth.tokens import jwt_claims, jwt_expiry
 
 __all__ = [
     "Session",
@@ -34,16 +37,20 @@ __all__ = [
     "BasicAuth",
     "CookieAuth",
     "HeaderAuth",
+    "HostScoped",
     "MultiScheme",
     "AuthProvider",
     "JsonLoginProvider",
     "FormLoginProvider",
     "FlowLoginProvider",
+    "FlowAuthProvider",
     "RefreshGate",
     "SessionManager",
     "RefreshScheduler",
     "AuthInterceptor",
     "AuthProfile",
+    "jwt_claims",
+    "jwt_expiry",
     "AuthError",
     "LoginError",
     "RefreshError",

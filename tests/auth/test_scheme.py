@@ -3,6 +3,7 @@ from penpine.auth.scheme import (
     BearerAuth,
     CookieAuth,
     HeaderAuth,
+    HostScoped,
     MultiScheme,
 )
 from penpine.auth.session import Session
@@ -60,3 +61,40 @@ def test_header_auth_from_data_source():
     s = Session(data={"key": "K"})
     r = HeaderAuth("X-API-Key", value_source="key").apply(base_request(), s)
     assert r.headers["X-API-Key"] == "K"
+
+
+def test_host_scoped_applies_on_match():
+    scheme = HostScoped(BearerAuth(), "api.example")
+    r = scheme.apply(Request.from_url("https://api.example/x"), Session(token="t"))
+    assert r.headers["Authorization"] == "Bearer t"
+
+
+def test_host_scoped_skips_other_host():
+    scheme = HostScoped(BearerAuth(), "api.example")
+    req = Request.from_url("https://web.example/x")
+    r = scheme.apply(req, Session(token="t"))
+    assert "Authorization" not in r.headers
+    assert r is req  # untouched
+
+
+def test_host_scoped_ignores_port_and_case():
+    scheme = HostScoped(CookieAuth(), "API.Example")
+    req = base_request([("Host", "api.example:8443")])
+    r = scheme.apply(req, Session(cookies=[("sid", "x")]))
+    assert r.headers["Cookie"] == "sid=x"
+
+
+def test_multi_scheme_host_scoped_separates_material():
+    # Cookie only to the web host, bearer only to the API host — no cross-leak.
+    scheme = MultiScheme(
+        [HostScoped(CookieAuth(), "web.example"), HostScoped(BearerAuth(), "api.example")]
+    )
+    session = Session(token="jwt", cookies=[("JSESSIONID", "s")])
+
+    web = scheme.apply(Request.from_url("https://web.example/"), session)
+    assert web.headers["Cookie"] == "JSESSIONID=s"
+    assert "Authorization" not in web.headers
+
+    api = scheme.apply(Request.from_url("https://api.example/"), session)
+    assert api.headers["Authorization"] == "Bearer jwt"
+    assert "Cookie" not in api.headers
