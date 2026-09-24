@@ -19,6 +19,7 @@ SAMPLES = [
     "custom_module",
     "custom_rule",
     "custom_auth",
+    "multi_host_auth",
     "custom_interceptor",
     "data_sharing",
     "byo_test_cases",
