@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import time
 
-from penpine.auth.exceptions import LoginError
+from penpine.auth.exceptions import LoginError, RefreshError
 from penpine.auth.session import Session
+from penpine.auth.tokens import jwt_expiry
 from penpine.core.builder import RequestBuilder
 from penpine.core.cookies import parse_set_cookie
+from penpine.data.context import Context
 from penpine.flow.exceptions import StepError
 from penpine.flow.flow import Flow
 
@@ -131,3 +133,99 @@ class FlowLoginProvider(AuthProvider):
         cookies = [(k, ctx[k]) for k in self._cookie_keys if k in ctx]
         data = {k: ctx[k] for k in self._data_keys if k in ctx}
         return Session(token=token, cookies=cookies, data=data, expires_at=expires_at)
+
+
+class FlowAuthProvider(AuthProvider):
+    """Token-exchange auth driven by two Flows: one to log in, one to refresh.
+
+    ``login_flow`` runs with no auth and establishes the initial material —
+    cookie, refresh token, and (when the login response carries it) the first
+    access token. ``refresh_flow`` is seeded with the current session's cookies +
+    data, so its steps can reference ``{{refresh_token}}`` (or ``{{<cookie
+    name>}}``) to exchange the refresh token for a fresh access token.
+
+    Both flows yield a context dict that is mapped onto a Session:
+
+    * ``token_key``   -> ``Session.token``   (the access token; its JWT ``exp``
+      sets ``expires_at``, which is what drives ``SessionManager`` to refresh)
+    * ``cookie_keys`` -> ``Session.cookies`` (entry name == cookie name on wire)
+    * ``data_keys``   -> ``Session.data``    (e.g. ``"refresh_token"``)
+
+    On refresh the previous session's cookies and data are carried over, then
+    overwritten by anything the refresh flow re-captured (e.g. a rotated refresh
+    token). If the refresh flow fails and ``relogin_on_refresh_error`` is set, a
+    full ``login`` is run, so an expired refresh token self-heals.
+
+    When login yields a refresh token but no access token yet, ``expires_at`` is
+    set to ``0.0`` (already expired) so the next send runs ``refresh`` to obtain
+    the first access token — no recursion, since that refresh then succeeds.
+    """
+
+    def __init__(
+        self,
+        login_flow,
+        refresh_flow,
+        *,
+        token_key,
+        cookie_keys=None,
+        data_keys=("refresh_token",),
+        relogin_on_refresh_error=True,
+    ):
+        self._login_flow = login_flow
+        self._refresh_flow = refresh_flow
+        self._token_key = token_key
+        self._cookie_keys = list(cookie_keys or [])
+        self._data_keys = list(data_keys)
+        self._relogin = relogin_on_refresh_error
+
+    async def _run(self, flow, engine, seed=None) -> dict:
+        run_flow = Flow(
+            steps=flow.steps,
+            actor=engine,
+            context=Context(seed or {}),
+            continue_on_error=flow.continue_on_error,
+        )
+        return (await run_flow.run()).context
+
+    def _session(self, ctx: dict, *, carry: Session | None = None) -> Session:
+        # Carry the old cookies/data forward, then let the fresh context win.
+        cookies = dict(carry.cookies) if carry else {}
+        data = dict(carry.data) if carry else {}
+        for k in self._cookie_keys:
+            if k in ctx:
+                cookies[k] = ctx[k]
+        for k in self._data_keys:
+            if k in ctx:
+                data[k] = ctx[k]  # picks up a rotated refresh token
+        token = ctx.get(self._token_key)
+        if token is not None:
+            expires_at = jwt_expiry(token)
+        elif data.get("refresh_token"):
+            # Refresh token but no access token yet: mark expired so the next
+            # send exchanges it for the first access token.
+            expires_at = 0.0
+        else:
+            expires_at = None
+        return Session(
+            token=token,
+            cookies=list(cookies.items()),
+            data=data,
+            expires_at=expires_at,
+        )
+
+    async def login(self, engine) -> Session:
+        try:
+            ctx = await self._run(self._login_flow, engine)
+        except StepError as exc:
+            raise LoginError(f"login flow failed at step {exc.name!r}") from exc
+        return self._session(ctx)
+
+    async def refresh(self, engine, session) -> Session:
+        seed = {**dict(session.cookies), **(session.data or {})}
+        try:
+            ctx = await self._run(self._refresh_flow, engine, seed=seed)
+        except StepError as exc:
+            if self._relogin:
+                return await self.login(engine)
+            raise RefreshError(f"refresh flow failed at step {exc.name!r}") from exc
+        return self._session(ctx, carry=session)

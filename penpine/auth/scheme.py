@@ -71,3 +71,26 @@ class MultiScheme(AuthScheme):
         for scheme in self._schemes:
             request = scheme.apply(request, session)
         return request
+
+
+class HostScoped(AuthScheme):
+    """Apply an inner scheme only when the request targets one of ``hosts``.
+
+    The host is read from ``request.meta.host`` (set by the loaders/builder),
+    falling back to the ``Host`` header; the port is ignored. This lets a single
+    ``MultiScheme`` bind, say, a cookie to the web host and a bearer token to the
+    API host without leaking either material across hosts.
+    """
+
+    def __init__(self, inner: AuthScheme, *hosts: str):
+        self._inner = inner
+        self._hosts = {h.lower() for h in hosts}
+
+    def _host_of(self, request: Request) -> str:
+        host = request.meta.host or request.headers.get("Host", "") or ""
+        return host.split(":", 1)[0].lower()
+
+    def apply(self, request: Request, session: Session) -> Request:
+        if self._host_of(request) in self._hosts:
+            return self._inner.apply(request, session)
+        return request
