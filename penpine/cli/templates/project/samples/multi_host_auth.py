@@ -97,10 +97,11 @@ def demo():
     # and the actual sends go through our fake engine here; in real use you'd
     # pass a real Engine (optionally one per identity, routed via a proxy).
     with profile.manager(auth_engine=engine, send_engine=engine) as mgr:
-        # First call to the web host: no session yet -> auto-login, cookie attached.
-        mgr.send_sync(Request.from_url(f"https://{WEB_HOST}/home"))
-        # First call to the API host: access token is due -> auto-refresh, bearer attached.
-        mgr.send_sync(Request.from_url(f"https://{API_HOST}/transfer"))
+        # First call: no session yet -> auto-login. Login has no access token of
+        # its own, so the provider immediately runs the refresh flow to fetch one
+        # -- the session is fully ready before this request even goes out.
+        mgr.send_sync(Request.from_url(f"https://{WEB_HOST}/home"))    # cookie attached
+        mgr.send_sync(Request.from_url(f"https://{API_HOST}/transfer"))  # bearer attached, not None
 
     # What the engine actually saw, in order -- the full lifecycle:
     print("request lifecycle:")
