@@ -25,6 +25,26 @@ for f in report.findings:
 
 ---
 
+## Contents
+
+- [Why penpine](#why-penpine)
+- [Install](#install)
+- [Quickstart](#quickstart) — scaffold a project, run the samples
+- [Architecture](#architecture)
+- [L0 — Crafting requests](#l0--crafting-requests) · [the locator DSL](#the-locator-dsl)
+- [L1 — Sending over raw sockets](#l1--sending-over-raw-sockets)
+- [L2 — Auth, sessions & refresh](#l2--auth-sessions-and-refresh) — incl. [multi-host & token refresh](#multi-host-auth-and-token-refresh)
+- [L3 — Identities & data sharing](#l3--identities-and-runtime-data-sharing)
+- [Flows — multi-step scenarios](#flows--multi-step-scenarios) · [attacking flows](#attacking-flows) · [custom logins](#custom-logins)
+- [L4 — Analyze, attack, validate](#l4--analyze-attack-validate)
+- [Logging](#logging) · [Exceptions](#exceptions) · [Testing](#testing) · [Development](#development)
+
+New here? Read **Why penpine**, then jump to **[Quickstart](#quickstart)** to
+scaffold a runnable project — the layer sections (L0–L4) are a reference you can
+dip into per task.
+
+---
+
 ## Why penpine
 
 - **No HTTP library.** A hand-written HTTP/1.1 parser and serializer over raw
@@ -59,6 +79,43 @@ terminal output — presentation only, never on the request/attack path).
 pip install -e .            # from a checkout
 pip install -e ".[dev]"     # with pytest + pytest-asyncio for the test suite
 ```
+
+## Quickstart
+
+There are two ways to work with penpine. Most engagements start by **scaffolding
+a project** — that is the CLI's one job:
+
+```bash
+penpine new myengagement     # creates ./myengagement with a venv + deps installed
+cd myengagement
+python main.py               # runs the sample attack; edit config.py to point at your target
+```
+
+`penpine new` gives you a config-driven `main.py`, a `requests/` folder for saved
+`.http` requests, a resumable checkpoint, and a `samples/` directory — the
+**canonical, runnable examples of every extension seam**. Useful flags:
+`--no-venv` (skip the virtualenv), `--dir <path>` (parent directory),
+`--force` (scaffold into a non-empty directory).
+
+**Learn from the samples.** Each is self-contained and runs offline (no sockets,
+no live target). From inside a scaffolded project:
+
+```bash
+python -m samples.multi_host_auth
+```
+
+| Sample(s) | What it shows |
+|-----------|---------------|
+| `flow_basic`, `flow_login`, `flow_attacks` | multi-step scenarios, flow-based login, attacking a flow |
+| `multi_host_auth` | multi-host cookie + JWT via refresh-token exchange |
+| `data_sharing` | cross-identity capture/replay (IDOR) |
+| `custom_module`, `custom_payload`, `custom_validator`, `custom_rule` | extending the attack engine |
+| `custom_auth`, `custom_interceptor` | custom auth schemes and transport interceptors |
+| `byo_test_cases` | bring-your-own explicit test cases |
+| `websocket` | WebSocket client + flow steps |
+
+**Or import the library** into your own script — see the snippet at the top of
+this README, and the layer-by-layer guide below.
 
 ## Architecture
 
@@ -197,6 +254,49 @@ The `SessionManager` automatically re-logs in on a `401`, and a
 suspending all in-flight sends through a `RefreshGate` barrier while it does,
 then resuming them with the new credentials. Schemes cover Bearer, Basic,
 Cookie, arbitrary Header, and `MultiScheme` combinations.
+
+### Multi-host auth and token refresh
+
+Real targets often split auth across hosts — a **cookie** for the main web app,
+plus a short-lived **JWT** for an API host that you obtain by exchanging a
+long-lived **refresh token**. penpine binds each credential to the right host
+and refreshes the access token on its own schedule.
+
+**Scope a scheme to a host** with `HostScoped`, so a `MultiScheme` never leaks a
+credential to the wrong host (host is read from the request, port-insensitive):
+
+```python
+from penpine.auth import MultiScheme, HostScoped, CookieAuth, BearerAuth
+
+scheme = MultiScheme([
+    HostScoped(CookieAuth(), "web.example"),   # cookie only to the web host
+    HostScoped(BearerAuth(), "api.example"),   # bearer only to the API host
+])
+```
+
+**Exchange a refresh token for access tokens** with `FlowAuthProvider`: one Flow
+logs in (establishing the cookie + refresh token), a second Flow exchanges the
+refresh token for a fresh access token. The provider carries the cookie forward,
+picks up a rotated refresh token, and reads the JWT's `exp` claim so the
+`SessionManager` refreshes *before* each expiry instead of re-running the full
+login. A failed refresh falls back to a full re-login.
+
+```python
+from penpine.auth import FlowAuthProvider
+
+provider = FlowAuthProvider(
+    login_flow, refresh_flow,
+    token_key="access_token",     # -> Session.token (its JWT `exp` sets expiry)
+    cookie_keys=["JSESSIONID"],   # -> Session.cookies
+    data_keys=["refresh_token"],  # -> Session.data, carried across each refresh
+)
+```
+
+The `refresh_flow` is seeded with the current session's cookies + data, so its
+steps can reference `{{refresh_token}}` (or `{{JSESSIONID}}`). Where the token
+lives is entirely the flow's `Extract`'s job — header, JSON body, `Set-Cookie`,
+or a regex — so you never touch the provider when the token moves. See
+`samples/multi_host_auth.py` for a runnable end-to-end example.
 
 ## L3 — Identities and runtime data sharing
 
@@ -385,7 +485,7 @@ test case never aborts the run.
 ## Testing
 
 ```bash
-pytest                # ~400 tests (1 opt-in slow), no network required
+pytest                # ~650 tests (1 opt-in slow), no network required
 ```
 
 The whole suite runs against synthetic requests/responses and fake senders — no
